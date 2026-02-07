@@ -1,0 +1,286 @@
+export interface KnowledgeEntry {
+  id: string;
+  keywords: string[];
+  synonyms: Record<string, string[]>;
+  question: string;
+  answer: string;
+  category: string;
+}
+
+export const knowledgeBase: KnowledgeEntry[] = [
+  // === SCORING ===
+  {
+    id: 'scoring-bid-met-positive',
+    keywords: ['score', 'point', 'annonce', 'reussie', 'gagner', 'pari', 'prediction', 'mise', 'compter'],
+    synonyms: {
+      annonce: ['pari', 'prediction', 'mise', 'enchère'],
+      point: ['score', 'comptage'],
+    },
+    question: 'Comment sont calculés les points quand on réussit son annonce ?',
+    answer:
+      'Si vous réussissez exactement votre annonce (nombre de plis gagné = annonce) :\n\n' +
+      '• **Annonce > 0** : vous gagnez **+20 × votre annonce**. Par exemple, si vous annoncez 3 et gagnez 3 plis → +60 points.\n\n' +
+      '• **Annonce = 0** : vous gagnez **+10 × numéro du round**. Par exemple, au round 5, annonce 0 réussie → +50 points.',
+    category: 'scoring',
+  },
+  {
+    id: 'scoring-bid-failed',
+    keywords: ['rate', 'echoue', 'perdu', 'mauvais', 'annonce', 'raté', 'echec', 'louper', 'difference'],
+    synonyms: {
+      rate: ['echoue', 'louper', 'manque', 'perdu'],
+      annonce: ['pari', 'prediction', 'mise'],
+    },
+    question: 'Que se passe-t-il quand on rate son annonce ?',
+    answer:
+      'Si votre annonce est ratée (plis ≠ annonce) :\n\n' +
+      '• **Annonce > 0** : vous perdez **-10 × |plis - annonce|**. Par exemple, annonce 3 mais 1 pli → -20 points.\n\n' +
+      '• **Annonce = 0** : vous perdez **-10 × numéro du round**. Par exemple, au round 4, vous preniez un pli → -40 points.',
+    category: 'scoring',
+  },
+  {
+    id: 'scoring-zero-bid',
+    keywords: ['zero', 'annonce', 'aucun', 'pli', 'rien', '0'],
+    synonyms: {
+      annonce: ['pari', 'prediction', 'mise'],
+      pli: ['levee', 'trick', 'tour'],
+    },
+    question: "Comment fonctionne l'annonce à 0 ?",
+    answer:
+      "L'annonce à 0 signifie que vous pariez ne gagner aucun pli :\n\n" +
+      '• **Réussie** (0 pli gagné) : **+10 × numéro du round**. Plus le round est avancé, plus le gain est important !\n\n' +
+      '• **Ratée** (au moins 1 pli gagné) : **-10 × numéro du round**. Le risque augmente aussi avec les rounds.',
+    category: 'scoring',
+  },
+
+  // === BONUSES ===
+  {
+    id: 'bonus-skull-king-pirates',
+    keywords: ['skull', 'king', 'pirate', 'capture', 'bonus', '30'],
+    synonyms: {
+      pirate: ['corsaire', 'flibustier'],
+      capture: ['attrape', 'prend', 'bat', 'vainc'],
+    },
+    question: 'Quel est le bonus quand le Skull King capture des pirates ?',
+    answer:
+      'Quand le **Skull King** capture des cartes Pirates dans un pli, le joueur reçoit un bonus de **+30 points par Pirate capturé**.\n\n' +
+      "Ce bonus s'applique **même si l'annonce est ratée**. Par exemple, si le Skull King capture 2 pirates → +60 points de bonus.",
+    category: 'bonus',
+  },
+  {
+    id: 'bonus-mermaid-skull-king',
+    keywords: ['sirene', 'skull', 'king', 'bat', 'defait', 'bonus', '50', 'mermaid'],
+    synonyms: {
+      sirene: ['mermaid', 'ondine'],
+      bat: ['defait', 'vainc', 'capture', 'tue'],
+    },
+    question: 'Quel est le bonus quand la Sirène bat le Skull King ?',
+    answer:
+      'Quand une **Sirène** bat le **Skull King**, le joueur de la Sirène reçoit un bonus de **+50 points**.\n\n' +
+      "Ce bonus s'applique **même si l'annonce est ratée**. C'est le seul cas où le Skull King peut être vaincu !",
+    category: 'bonus',
+  },
+
+  // === CARD HIERARCHY ===
+  {
+    id: 'hierarchy',
+    keywords: ['hierarchie', 'ordre', 'carte', 'force', 'qui', 'gagne', 'pli', 'puissance'],
+    synonyms: {
+      hierarchie: ['ordre', 'classement', 'rang'],
+      carte: ['card'],
+      gagne: ['remporte', 'emporte', 'prend'],
+    },
+    question: 'Quelle est la hiérarchie des cartes ?',
+    answer:
+      "Voici la hiérarchie des cartes (de la plus forte à la plus faible) :\n\n" +
+      '1. **Skull King** – bat tout sauf la Sirène\n' +
+      '2. **Sirène (Mermaid)** – bat le Skull King, perd contre les Pirates\n' +
+      '3. **Pirates** – battent toutes les cartes numérotées et les Sirènes, perdent contre le Skull King\n' +
+      "4. **Cartes numérotées** – la couleur d'atout (noire ☠️) bat les autres couleurs\n" +
+      '5. **Escape (Fugitif)** – perd toujours\n\n' +
+      'En cas de conflit entre cartes de même rang, la première jouée l\'emporte.',
+    category: 'rules',
+  },
+  {
+    id: 'trump-color',
+    keywords: ['atout', 'couleur', 'noir', 'jaune', 'rouge', 'bleu', 'violet'],
+    synonyms: {
+      atout: ['trump'],
+    },
+    question: "Quelle est la couleur d'atout ?",
+    answer:
+      "La couleur d'atout dans Skull King est le **Noir** (avec le symbole ☠️ tête de mort).\n\n" +
+      "Les cartes noires battent les cartes des autres couleurs (jaune, rouge, bleu/violet). Si aucune carte d'atout n'est jouée, " +
+      "c'est la plus haute carte de la couleur d'entame qui gagne.",
+    category: 'rules',
+  },
+
+  // === SPECIAL CARDS ===
+  {
+    id: 'white-whale',
+    keywords: ['baleine', 'blanche', 'white', 'whale', 'annule', 'special'],
+    synonyms: {
+      baleine: ['whale'],
+      blanche: ['white'],
+    },
+    question: 'Comment fonctionne la Baleine Blanche ?',
+    answer:
+      "La **Baleine Blanche (White Whale)** est une carte spéciale d'extension :\n\n" +
+      '• Elle **annule le pli** en cours : personne ne le remporte.\n' +
+      '• Toutes les cartes jouées sont retirées du jeu.\n' +
+      "• Le joueur qui menait recommence un nouveau pli.\n\n" +
+      "Elle n'a pas d'impact direct sur le score, mais peut bouleverser les stratégies d'annonce !",
+    category: 'special',
+  },
+  {
+    id: 'escape',
+    keywords: ['escape', 'fugitif', 'fuite', 'fuir', 'perd'],
+    synonyms: {
+      escape: ['fugitif', 'fuite'],
+    },
+    question: "Comment fonctionne l'Escape (Fugitif) ?",
+    answer:
+      "L'**Escape (Fugitif)** est une carte qui **perd toujours**.\n\n" +
+      "• Elle ne remporte jamais de pli.\n" +
+      "• C'est utile quand vous avez annoncé 0 et ne voulez pas gagner de pli.\n" +
+      "• Si tout le monde joue un Escape, c'est le premier joueur à avoir joué un Escape qui remporte le pli.",
+    category: 'special',
+  },
+  {
+    id: 'loot',
+    keywords: ['butin', 'loot', 'tresor', 'carte', 'optionnel', 'bonus'],
+    synonyms: {
+      butin: ['loot', 'tresor', 'trésor'],
+    },
+    question: 'Comment fonctionnent les cartes Butin (Loot) ?',
+    answer:
+      "Les **cartes Butin (Loot)** sont une extension optionnelle (activable dans les Paramètres) :\n\n" +
+      '• Valeurs possibles : **+20, +30 ou -10** points.\n' +
+      "• Les points de butin sont ajoutés au score du round, en plus du score de base et des bonus.\n" +
+      "• Ils s'appliquent que l'annonce soit réussie ou non.\n\n" +
+      "Activez ou désactivez cette option dans les paramètres de l'application.",
+    category: 'special',
+  },
+
+  // === GAME FLOW ===
+  {
+    id: 'round-flow',
+    keywords: ['round', 'manche', 'tour', 'deroulement', 'comment', 'jouer', 'etape'],
+    synonyms: {
+      round: ['manche', 'tour'],
+      deroulement: ['etape', 'processus', 'fonctionnement'],
+    },
+    question: 'Comment se déroule une manche ?',
+    answer:
+      "Chaque manche se déroule ainsi :\n\n" +
+      "1. **Distribution** : au round R, chaque joueur reçoit R cartes.\n" +
+      "2. **Annonces** : chaque joueur annonce combien de plis il pense gagner (de 0 à R).\n" +
+      "3. **Jeu des plis** : les joueurs jouent leurs cartes tour par tour.\n" +
+      "4. **Décompte** : l'application calcule les scores selon les annonces, plis gagnés et bonus.\n\n" +
+      "Le jeu se joue en 10 manches (par défaut).",
+    category: 'rules',
+  },
+  {
+    id: 'player-count',
+    keywords: ['joueur', 'combien', 'nombre', 'minimum', 'maximum', '2', '12'],
+    synonyms: {
+      joueur: ['participant', 'personne'],
+    },
+    question: 'Combien de joueurs peuvent participer ?',
+    answer:
+      'Skull King se joue de **2 à 12 joueurs** (avec les extensions).\n\n' +
+      "L'application supporte ce nombre de joueurs. Le jeu est meilleur à partir de 4-5 joueurs.",
+    category: 'rules',
+  },
+
+  // === STRATEGY ===
+  {
+    id: 'strategy-zero',
+    keywords: ['strategie', 'conseil', 'astuce', 'zero', 'quand'],
+    synonyms: {
+      strategie: ['conseil', 'astuce', 'tip', 'truc'],
+    },
+    question: "Quand faut-il annoncer 0 ?",
+    answer:
+      "Annoncer 0 est intéressant quand :\n\n" +
+      '• Vous avez des cartes faibles ou des Escapes.\n' +
+      "• Le round est avancé (le gain de +10×R est plus intéressant).\n" +
+      '• Vous êtes confiant de pouvoir éviter tous les plis.\n\n' +
+      "Attention : le risque augmente aussi car la pénalité est -10×R !",
+    category: 'strategy',
+  },
+  {
+    id: 'strategy-skull-king',
+    keywords: ['strategie', 'skull', 'king', 'utiliser', 'jouer', 'quand'],
+    synonyms: {},
+    question: 'Quand jouer le Skull King ?',
+    answer:
+      "Le Skull King est la carte la plus puissante :\n\n" +
+      '• Jouez-le quand plusieurs Pirates sont en jeu pour maximiser le bonus (+30/pirate).\n' +
+      '• Attention aux Sirènes qui peuvent le battre (+50 pour l\'adversaire) !\n' +
+      "• Il garantit de gagner un pli (sauf Sirène), utile pour ajuster votre annonce.",
+    category: 'strategy',
+  },
+
+  // === EDGE CASES ===
+  {
+    id: 'edge-all-escape',
+    keywords: ['tous', 'escape', 'fugitif', 'egalite', 'tout', 'pareil'],
+    synonyms: {},
+    question: 'Que se passe-t-il si tout le monde joue un Escape ?',
+    answer:
+      "Si tous les joueurs jouent un Escape (Fugitif), le **premier joueur** à avoir posé un Escape remporte le pli.\n\n" +
+      "C'est la seule situation où un Escape peut gagner un pli !",
+    category: 'edge',
+  },
+  {
+    id: 'edge-multiple-special',
+    keywords: ['plusieurs', 'pirate', 'sirene', 'skull', 'meme', 'pli', 'conflit'],
+    synonyms: {},
+    question: 'Que se passe-t-il avec plusieurs cartes spéciales dans le même pli ?',
+    answer:
+      "Quand plusieurs cartes spéciales sont jouées :\n\n" +
+      '• **Skull King + Pirates** : le Skull King gagne et capture les Pirates (+30/pirate).\n' +
+      '• **Skull King + Sirène** : la Sirène gagne et reçoit +50 points de bonus.\n' +
+      '• **Skull King + Sirène + Pirates** : la Sirène gagne (elle bat le SK), le SK ne capture pas les Pirates.\n' +
+      '• **Plusieurs Pirates** : le premier Pirate joué l\'emporte.\n' +
+      '• **Pirate + Sirène (sans SK)** : le Pirate gagne (les Pirates battent les Sirènes).',
+    category: 'edge',
+  },
+  {
+    id: 'scoring-summary',
+    keywords: ['resume', 'recapitulatif', 'tableau', 'synthese', 'tout', 'regles', 'complet'],
+    synonyms: {
+      resume: ['recapitulatif', 'synthese', 'sommaire'],
+    },
+    question: 'Peux-tu résumer toutes les règles de scoring ?',
+    answer:
+      "**Récapitulatif du scoring :**\n\n" +
+      "**Annonce réussie :**\n" +
+      "• Annonce > 0 : +20 × annonce\n" +
+      "• Annonce = 0 : +10 × n° du round\n\n" +
+      "**Annonce ratée :**\n" +
+      "• Annonce > 0 : -10 × |plis - annonce|\n" +
+      "• Annonce = 0 : -10 × n° du round\n\n" +
+      "**Bonus (toujours appliqués) :**\n" +
+      "• Skull King capture des Pirates : +30/pirate\n" +
+      "• Sirène bat le Skull King : +50\n\n" +
+      "**Butin (optionnel) :** +20, +30 ou -10 points additionnels.",
+    category: 'scoring',
+  },
+];
+
+export const defaultSuggestions: string[] = [
+  'Comment compter les points ?',
+  'Annonce à 0 ?',
+  'Baleine Blanche ?',
+  'Skull King vs Sirène ?',
+  'Hiérarchie des cartes ?',
+  'Cartes Butin ?',
+];
+
+export const fallbackResponse =
+  "Désolé, je n'ai pas bien compris votre question. Essayez de reformuler ou choisissez une suggestion ci-dessous. " +
+  "Je peux vous aider sur : les règles du jeu, le scoring, les bonus, les cartes spéciales et les stratégies.";
+
+export const clarificationResponse =
+  "Votre question semble concerner plusieurs sujets. Pouvez-vous préciser ? Voici ce que j'ai trouvé :";
