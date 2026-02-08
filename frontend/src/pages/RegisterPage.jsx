@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Container, Typography, TextField, Button, Card, CardContent, Stack, Alert } from '@mui/material';
+import { Container, Typography, TextField, Button, Card, CardContent, Stack, Alert, IconButton, InputAdornment } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -9,6 +10,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -47,14 +50,36 @@ export default function RegisterPage() {
                 required fullWidth autoFocus
               />
               <TextField
-                label="Mot de passe" type="password" value={password}
+                label="Mot de passe" type={showPassword ? 'text' : 'password'} value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required fullWidth helperText="Minimum 6 caractères"
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
               <TextField
-                label="Confirmer le mot de passe" type="password" value={confirm}
+                label="Confirmer le mot de passe" type={showConfirm ? 'text' : 'password'} value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required fullWidth
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowConfirm(!showConfirm)} edge="end" size="small">
+                          {showConfirm ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
               <Button type="submit" variant="contained" fullWidth size="large" disabled={loading}>
                 {loading ? 'Création...' : 'Créer mon compte'}
