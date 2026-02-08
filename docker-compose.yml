@@ -6,8 +6,8 @@ services:
       POSTGRES_USER: skullking
       POSTGRES_PASSWORD: skullking_secret
       POSTGRES_DB: skullking
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    tmpfs:
+      - /var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -40,6 +40,3 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:3001/api
-
-volumes:
-  pgdata:
