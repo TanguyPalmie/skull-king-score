@@ -23,7 +23,7 @@ function phaseToStep(phase) {
 }
 
 function createEmptyGame() {
-  return { id: generateId(), players: [], rounds: [], currentRound: 1, phase: 'setup', startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  return { id: generateId(), players: [], rounds: [], currentRound: 1, phase: 'setup', extension: false, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
 }
 
 function createRoundData(players, roundNumber) {
@@ -32,7 +32,7 @@ function createRoundData(players, roundNumber) {
     playerData: players.map((p) => ({
       playerId: p.id, bid: 0, tricks: 0,
       piratesCaptured: 0, mermaidDefeatsSkullKing: false, mermaidsCaptured: 0,
-      raieManta: false, goldBet: false, lootPoints: 0,
+      raieManta: false, davyJonesCreatures: 0, goldBet: false, lootPoints: 0,
     })),
   };
 }
@@ -180,6 +180,20 @@ export default function GamePage() {
           </Card>
         ))}
       </Stack>
+      <Card sx={{ p: 2, mb: 3, border: game.extension ? '1px solid' : 'none', borderColor: 'warning.main' }}>
+        <FormControlLabel
+          control={<Switch checked={game.extension || false} onChange={(_, c) => updateGame({ extension: c })} color="warning" />}
+          label={
+            <Box>
+              <Typography fontWeight={600} color={game.extension ? 'warning.main' : 'text.primary'}>Extension</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Ajoute le Second du SK (pirate ++), Davy Jones (+30/creature), Raie Manta (+20), Sirenes capturees (+20)
+              </Typography>
+            </Box>
+          }
+          sx={{ ml: 0, alignItems: 'flex-start' }}
+        />
+      </Card>
       <Button variant="contained" fullWidth size="large" onClick={startGame} disabled={game.players.length < 2}>
         Commencer la Partie
       </Button>
@@ -260,19 +274,33 @@ export default function GamePage() {
                 <IconButton size="small" onClick={() => updatePD(pd.playerId, { piratesCaptured: pd.piratesCaptured + 1 })}><Add /></IconButton>
               </Stack>
             </Stack>
-            {/* Mermaids captured by SK */}
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-              <Typography variant="body2">Sirenes capturees par SK (+20)</Typography>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <IconButton size="small" onClick={() => updatePD(pd.playerId, { mermaidsCaptured: Math.max(0, (pd.mermaidsCaptured || 0) - 1) })} disabled={!pd.mermaidsCaptured}><Remove /></IconButton>
-                <Chip label={String(pd.mermaidsCaptured || 0)} sx={{ minWidth: 40 }} />
-                <IconButton size="small" onClick={() => updatePD(pd.playerId, { mermaidsCaptured: (pd.mermaidsCaptured || 0) + 1 })}><Add /></IconButton>
-              </Stack>
-            </Stack>
             {/* Mermaid beats SK */}
             <FormControlLabel control={<Switch checked={pd.mermaidDefeatsSkullKing} onChange={(_, c) => updatePD(pd.playerId, { mermaidDefeatsSkullKing: c })} color="primary" />} label="Sirene bat le Skull King (+50)" sx={{ mb: 0.5 }} />
-            {/* Raie Manta */}
-            <FormControlLabel control={<Switch checked={pd.raieManta || false} onChange={(_, c) => updatePD(pd.playerId, { raieManta: c })} color="secondary" />} label="Raie Manta capturee (+20)" sx={{ mb: 0.5 }} />
+            {/* Extension-only bonus fields */}
+            {game.extension && (
+              <>
+                {/* Mermaids captured by SK */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="body2">Sirenes capturees par SK (+20)</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { mermaidsCaptured: Math.max(0, (pd.mermaidsCaptured || 0) - 1) })} disabled={!pd.mermaidsCaptured}><Remove /></IconButton>
+                    <Chip label={String(pd.mermaidsCaptured || 0)} sx={{ minWidth: 40 }} />
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { mermaidsCaptured: (pd.mermaidsCaptured || 0) + 1 })}><Add /></IconButton>
+                  </Stack>
+                </Stack>
+                {/* Davy Jones */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="body2">Davy Jones - creatures tuees (+30)</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: Math.max(0, (pd.davyJonesCreatures || 0) - 1) })} disabled={!pd.davyJonesCreatures}><Remove /></IconButton>
+                    <Chip label={String(pd.davyJonesCreatures || 0)} sx={{ minWidth: 40 }} />
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: (pd.davyJonesCreatures || 0) + 1 })}><Add /></IconButton>
+                  </Stack>
+                </Stack>
+                {/* Raie Manta */}
+                <FormControlLabel control={<Switch checked={pd.raieManta || false} onChange={(_, c) => updatePD(pd.playerId, { raieManta: c })} color="secondary" />} label="Raie Manta capturee (+20)" sx={{ mb: 0.5 }} />
+              </>
+            )}
             {/* Loot */}
             {settings.lootEnabled && (
               <Box sx={{ mt: 1.5 }}>

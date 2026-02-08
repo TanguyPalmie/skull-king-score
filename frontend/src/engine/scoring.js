@@ -1,13 +1,20 @@
 /**
  * Calculate the score for a single player in a single round.
  *
- * Bonus fields:
- *   piratesCaptured    – number of pirates captured by SK (+30 each)
+ * Base scoring:
+ *   bid > 0 met  → 20×bid + 10×tricks
+ *   bid = 0 met  → 10×roundNumber
+ *   bid > 0 miss → -10×|tricks-bid|
+ *   bid = 0 miss → -10×roundNumber
+ *
+ * Bonus fields (always apply):
+ *   piratesCaptured         – pirates captured by SK (+30 each)
  *   mermaidDefeatsSkullKing – mermaid beats SK (+50)
- *   mermaidsCaptured   – number of mermaids captured by SK (+20 each)
- *   raieManta          – captured the Manta Ray (+20)
- *   goldBet            – pari gold: doubles the base score (positive or negative)
- *   lootPoints         – free-form butin points
+ *   mermaidsCaptured        – mermaids captured by SK (+20 each)
+ *   raieManta               – captured the Manta Ray (+20)
+ *   davyJonesCreatures      – creatures killed by Davy Jones (+30 each)
+ *   goldBet                 – pari gold: doubles the base score
+ *   lootPoints              – free-form butin points
  */
 export function calculateRoundScore(data, roundNumber) {
   const {
@@ -16,13 +23,14 @@ export function calculateRoundScore(data, roundNumber) {
     mermaidDefeatsSkullKing = false,
     mermaidsCaptured = 0,
     raieManta = false,
+    davyJonesCreatures = 0,
     goldBet = false,
     lootPoints = 0,
   } = data;
 
   let baseScore;
   if (tricks === bid) {
-    baseScore = bid > 0 ? 20 * bid : 10 * roundNumber;
+    baseScore = bid > 0 ? 20 * bid + 10 * tricks : 10 * roundNumber;
   } else {
     baseScore = bid > 0 ? -10 * Math.abs(tricks - bid) : -10 * roundNumber;
   }
@@ -36,7 +44,8 @@ export function calculateRoundScore(data, roundNumber) {
     piratesCaptured * 30 +
     (mermaidDefeatsSkullKing ? 50 : 0) +
     mermaidsCaptured * 20 +
-    (raieManta ? 20 : 0);
+    (raieManta ? 20 : 0) +
+    davyJonesCreatures * 30;
 
   const lootScore = lootPoints || 0;
 
