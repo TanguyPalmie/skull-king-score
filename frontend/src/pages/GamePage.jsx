@@ -3,12 +3,34 @@ import {
   Box, Typography, Button, Container, Stepper, Step, StepLabel, Card,
   TextField, IconButton, Avatar, Stack, Chip, Switch, FormControlLabel,
   Divider, Dialog, DialogTitle, DialogContent, DialogActions, Alert,
+  Fade, Grow, Slide, Zoom, LinearProgress,
 } from '@mui/material';
 import { Add, Remove, Delete, PhotoCamera, SkipNext, Stop } from '@mui/icons-material';
+import { keyframes } from '@mui/system';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { saveGameLocal, loadGameLocal, clearGameLocal, loadSettingsLocal, generateId } from '../storage/localStorage.js';
 import { calculateRoundScore } from '../engine/scoring.js';
 import Scoreboard from '../components/Scoreboard.jsx';
+
+// Animations
+const popIn = keyframes`
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+`;
+const slideUp = keyframes`
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+`;
+const scorePulse = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+`;
+const shimmer = keyframes`
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+`;
 
 const STEPS = ['Inscription', 'Annonces', 'Plis & Bonus', 'Résultats'];
 
@@ -155,8 +177,9 @@ export default function GamePage() {
 
   // === SETUP ===
   if (game.phase === 'setup') return (
+    <Fade in timeout={400}>
     <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
-      <Typography variant="h5" gutterBottom color="primary.main">Inscription des joueurs</Typography>
+      <Typography variant="h5" gutterBottom color="primary.main" sx={{ animation: `${slideUp} 0.5s ease` }}>Inscription des joueurs</Typography>
       <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">{game.players.length}/12 joueurs (minimum 2)</Typography>
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         <TextField label="Nom du joueur" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)}
@@ -194,14 +217,18 @@ export default function GamePage() {
           sx={{ ml: 0, alignItems: 'flex-start' }}
         />
       </Card>
-      <Button variant="contained" fullWidth size="large" onClick={startGame} disabled={game.players.length < 2}>
+      <Button variant="contained" fullWidth size="large" onClick={startGame} disabled={game.players.length < 2}
+        sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.02)' } }}
+      >
         Commencer la Partie
       </Button>
     </Container>
+    </Fade>
   );
 
   // === BIDDING ===
   if (game.phase === 'bidding' && currentRound) return (
+    <Fade in timeout={400}>
     <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
       <Stepper activeStep={phaseToStep('bidding')} alternativeLabel sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
         {STEPS.map((l) => <Step key={l}><StepLabel>{l}</StepLabel></Step>)}
@@ -214,8 +241,9 @@ export default function GamePage() {
         Chaque joueur annonce combien de plis il pense gagner (0 a {game.currentRound}).
       </Typography>
       <Stack spacing={2} sx={{ mb: 3 }}>
-        {currentRound.playerData.map((pd) => (
-          <Card key={pd.playerId} sx={{ p: 2 }}>
+        {currentRound.playerData.map((pd, idx) => (
+          <Grow in timeout={300 + idx * 100} key={pd.playerId}>
+          <Card sx={{ p: 2 }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between">
               <Typography fontWeight={600}>{getPlayerName(pd.playerId)}</Typography>
               <Stack direction="row" alignItems="center" spacing={1}>
@@ -230,16 +258,27 @@ export default function GamePage() {
               sx={{ mt: 1, ml: 0 }}
             />
           </Card>
+          </Grow>
         ))}
       </Stack>
-      <Button variant="contained" fullWidth size="large" onClick={finishBidding}>Valider les Annonces</Button>
+      <Button variant="contained" fullWidth size="large" onClick={finishBidding}
+        sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.02)' } }}
+      >
+        Valider les Annonces
+      </Button>
       <GameMasterControls />
       <Dialogs />
     </Container>
+    </Fade>
   );
 
   // === SCORING ===
-  if ((game.phase === 'scoring' || game.phase === 'playing') && currentRound) return (
+  if ((game.phase === 'scoring' || game.phase === 'playing') && currentRound) {
+    const totalTricks = currentRound.playerData.reduce((sum, pd) => sum + pd.tricks, 0);
+    const tricksAtMax = totalTricks >= game.currentRound;
+
+    return (
+    <Fade in timeout={400}>
     <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
       <Stepper activeStep={phaseToStep('scoring')} alternativeLabel sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
         {STEPS.map((l) => <Step key={l}><StepLabel>{l}</StepLabel></Step>)}
@@ -248,9 +287,28 @@ export default function GamePage() {
         Manche {game.currentRound}/{settings.maxRounds} — Decompte
       </Alert>
       <Typography variant="h5" gutterBottom color="primary.main">Manche {game.currentRound} — Decompte</Typography>
+      {/* Total tricks indicator */}
+      <Box sx={{ mb: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+          <Typography variant="body2" color="text.secondary">Plis distribues</Typography>
+          <Typography variant="body2" fontWeight={700} color={tricksAtMax ? 'success.main' : 'text.secondary'}>
+            {totalTricks} / {game.currentRound}
+          </Typography>
+        </Stack>
+        <LinearProgress
+          variant="determinate"
+          value={Math.min(100, (totalTricks / game.currentRound) * 100)}
+          sx={{
+            height: 6, borderRadius: 3,
+            bgcolor: 'rgba(255,255,255,0.1)',
+            '& .MuiLinearProgress-bar': { bgcolor: tricksAtMax ? 'success.main' : 'primary.main', transition: 'transform 0.4s ease' },
+          }}
+        />
+      </Box>
       <Stack spacing={2} sx={{ mb: 3 }}>
-        {currentRound.playerData.map((pd) => (
-          <Card key={pd.playerId} sx={{ p: 2 }}>
+        {currentRound.playerData.map((pd, idx) => (
+          <Grow in timeout={300 + idx * 100} key={pd.playerId}>
+          <Card sx={{ p: 2 }}>
             <Typography fontWeight={700} gutterBottom color="primary.main">
               {getPlayerName(pd.playerId)} (annonce : {pd.bid}{pd.goldBet ? ' - GOLD' : ''})
             </Typography>
@@ -260,7 +318,7 @@ export default function GamePage() {
               <Stack direction="row" alignItems="center" spacing={1}>
                 <IconButton size="small" onClick={() => updatePD(pd.playerId, { tricks: Math.max(0, pd.tricks - 1) })} disabled={pd.tricks <= 0}><Remove /></IconButton>
                 <Chip label={String(pd.tricks)} sx={{ minWidth: 40 }} />
-                <IconButton size="small" onClick={() => updatePD(pd.playerId, { tricks: pd.tricks + 1 })}><Add /></IconButton>
+                <IconButton size="small" onClick={() => updatePD(pd.playerId, { tricks: pd.tricks + 1 })} disabled={tricksAtMax}><Add /></IconButton>
               </Stack>
             </Stack>
             <Divider sx={{ my: 1 }} />
@@ -321,26 +379,33 @@ export default function GamePage() {
               </Box>
             )}
           </Card>
+          </Grow>
         ))}
       </Stack>
       <Button variant="contained" fullWidth size="large" onClick={finishScoring}>Calculer les Scores</Button>
       <GameMasterControls showSkip={false} />
       <Dialogs />
     </Container>
-  );
+    </Fade>
+    );
+  }
 
   // === REVIEW ===
   if (game.phase === 'review' && currentRound) return (
+    <Fade in timeout={400}>
     <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
       <Stepper activeStep={3} alternativeLabel sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
         {STEPS.map((l) => <Step key={l}><StepLabel>{l}</StepLabel></Step>)}
       </Stepper>
-      <Typography variant="h5" gutterBottom color="primary.main">Manche {game.currentRound} — Resultats</Typography>
+      <Typography variant="h5" gutterBottom color="primary.main" sx={{ animation: `${slideUp} 0.5s ease` }}>
+        Manche {game.currentRound} — Resultats
+      </Typography>
       <Stack spacing={1.5} sx={{ mb: 3 }}>
-        {currentRound.playerData.map((pd) => {
+        {currentRound.playerData.map((pd, idx) => {
           const score = calculateRoundScore(pd, game.currentRound);
           return (
-            <Card key={pd.playerId} sx={{ p: 2 }}>
+            <Grow in timeout={400 + idx * 150} key={pd.playerId}>
+            <Card sx={{ p: 2 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Box>
                   <Typography fontWeight={700}>{getPlayerName(pd.playerId)}</Typography>
@@ -349,7 +414,12 @@ export default function GamePage() {
                   </Typography>
                 </Box>
                 <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="h6" color={score.totalRoundScore >= 0 ? 'success.main' : 'error.main'} fontWeight={700}>
+                  <Typography
+                    variant="h6"
+                    color={score.totalRoundScore >= 0 ? 'success.main' : 'error.main'}
+                    fontWeight={700}
+                    sx={{ animation: `${scorePulse} 0.6s ease ${0.5 + idx * 0.15}s both` }}
+                  >
                     {score.totalRoundScore >= 0 ? '+' : ''}{score.totalRoundScore}
                   </Typography>
                   {pd.goldBet && <Typography variant="caption" color="warning.main">Gold x2 </Typography>}
@@ -358,6 +428,7 @@ export default function GamePage() {
                 </Box>
               </Stack>
             </Card>
+            </Grow>
           );
         })}
       </Stack>
@@ -381,17 +452,44 @@ export default function GamePage() {
       </Stack>
       <Dialogs />
     </Container>
+    </Fade>
   );
 
   // === FINISHED ===
   return (
+    <Fade in timeout={500}>
     <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
-      <Typography variant="h4" gutterBottom color="primary.main" textAlign="center">Partie Terminee !</Typography>
-      <Scoreboard game={game} />
-      <Stack spacing={2} sx={{ mt: 3 }}>
-        <Button variant="contained" fullWidth size="large" onClick={newGame}>Nouvelle Partie</Button>
-        <Button variant="outlined" fullWidth onClick={() => navigate('/scores')}>Voir les Details</Button>
+      <Typography
+        variant="h4" gutterBottom color="primary.main" textAlign="center"
+        sx={{
+          animation: `${popIn} 0.7s ease`,
+          background: 'linear-gradient(90deg, #d4af37 0%, #fff 50%, #d4af37 100%)',
+          backgroundSize: '200% auto',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          animationName: `${popIn}, ${shimmer}`,
+          animationDuration: '0.7s, 3s',
+          animationTimingFunction: 'ease, linear',
+          animationIterationCount: '1, infinite',
+          animationDelay: '0s, 0.7s',
+        }}
+      >
+        Partie Terminee !
+      </Typography>
+      <Grow in timeout={800}><Box><Scoreboard game={game} /></Box></Grow>
+      <Stack spacing={2} sx={{ mt: 3, animation: `${slideUp} 0.6s ease 0.4s both` }}>
+        <Button variant="contained" fullWidth size="large" onClick={newGame}
+          sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.03)' } }}
+        >
+          Nouvelle Partie
+        </Button>
+        <Button variant="outlined" fullWidth onClick={() => navigate('/scores')}
+          sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.03)' } }}
+        >
+          Voir les Details
+        </Button>
       </Stack>
     </Container>
+    </Fade>
   );
 }
