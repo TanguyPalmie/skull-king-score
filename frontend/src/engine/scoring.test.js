@@ -8,7 +8,9 @@ function makeData(overrides = {}) {
     tricks: 0,
     piratesCaptured: 0,
     mermaidDefeatsSkullKing: false,
-    whiteWhalePlayed: false,
+    mermaidsCaptured: 0,
+    raieManta: false,
+    goldBet: false,
     lootPoints: 0,
     ...overrides,
   };
@@ -59,6 +61,50 @@ describe('calculateRoundScore', () => {
   it('loot negative points', () => {
     const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, lootPoints: -10 }), 1);
     expect(r.totalRoundScore).toBe(10);
+  });
+
+  // --- Extension bonus cards ---
+  it('mermaids captured by SK → +20 each', () => {
+    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, mermaidsCaptured: 2 }), 1);
+    expect(r.bonusScore).toBe(40);
+    expect(r.totalRoundScore).toBe(80);
+  });
+  it('raie manta → +20', () => {
+    const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, raieManta: true }), 1);
+    expect(r.bonusScore).toBe(20);
+    expect(r.totalRoundScore).toBe(40);
+  });
+  it('all bonuses stack together', () => {
+    const r = calculateRoundScore(makeData({
+      bid: 3, tricks: 3, piratesCaptured: 1, mermaidDefeatsSkullKing: true, mermaidsCaptured: 1, raieManta: true,
+    }), 2);
+    // base: 60, bonus: 30 + 50 + 20 + 20 = 120
+    expect(r.baseScore).toBe(60);
+    expect(r.bonusScore).toBe(120);
+    expect(r.totalRoundScore).toBe(180);
+  });
+
+  // --- Gold bet ---
+  it('gold bet doubles base score when bid met (bid>0)', () => {
+    const r = calculateRoundScore(makeData({ bid: 3, tricks: 3, goldBet: true }), 2);
+    expect(r.baseScore).toBe(120); // 20×3 × 2
+    expect(r.totalRoundScore).toBe(120);
+  });
+  it('gold bet doubles base score when bid=0 met', () => {
+    const r = calculateRoundScore(makeData({ bid: 0, tricks: 0, goldBet: true }), 4);
+    expect(r.baseScore).toBe(80); // 10×4 × 2
+    expect(r.totalRoundScore).toBe(80);
+  });
+  it('gold bet doubles penalty when bid missed', () => {
+    const r = calculateRoundScore(makeData({ bid: 3, tricks: 1, goldBet: true }), 2);
+    expect(r.baseScore).toBe(-40); // -10×2 × 2
+    expect(r.totalRoundScore).toBe(-40);
+  });
+  it('gold bet does not affect bonuses', () => {
+    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, goldBet: true, piratesCaptured: 1, mermaidDefeatsSkullKing: true }), 1);
+    expect(r.baseScore).toBe(80);  // 20×2 × 2
+    expect(r.bonusScore).toBe(80); // 30 + 50 (not doubled)
+    expect(r.totalRoundScore).toBe(160);
   });
 });
 

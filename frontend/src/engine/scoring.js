@@ -1,8 +1,24 @@
 /**
  * Calculate the score for a single player in a single round.
+ *
+ * Bonus fields:
+ *   piratesCaptured    – number of pirates captured by SK (+30 each)
+ *   mermaidDefeatsSkullKing – mermaid beats SK (+50)
+ *   mermaidsCaptured   – number of mermaids captured by SK (+20 each)
+ *   raieManta          – captured the Manta Ray (+20)
+ *   goldBet            – pari gold: doubles the base score (positive or negative)
+ *   lootPoints         – free-form butin points
  */
 export function calculateRoundScore(data, roundNumber) {
-  const { bid, tricks, piratesCaptured, mermaidDefeatsSkullKing, lootPoints } = data;
+  const {
+    bid, tricks,
+    piratesCaptured = 0,
+    mermaidDefeatsSkullKing = false,
+    mermaidsCaptured = 0,
+    raieManta = false,
+    goldBet = false,
+    lootPoints = 0,
+  } = data;
 
   let baseScore;
   if (tricks === bid) {
@@ -11,7 +27,17 @@ export function calculateRoundScore(data, roundNumber) {
     baseScore = bid > 0 ? -10 * Math.abs(tricks - bid) : -10 * roundNumber;
   }
 
-  const bonusScore = piratesCaptured * 30 + (mermaidDefeatsSkullKing ? 50 : 0);
+  // Gold bet doubles the base score (reward or penalty)
+  if (goldBet) {
+    baseScore *= 2;
+  }
+
+  const bonusScore =
+    piratesCaptured * 30 +
+    (mermaidDefeatsSkullKing ? 50 : 0) +
+    mermaidsCaptured * 20 +
+    (raieManta ? 20 : 0);
+
   const lootScore = lootPoints || 0;
 
   return {
