@@ -54,7 +54,7 @@ function createRoundData(players, roundNumber) {
     playerData: players.map((p) => ({
       playerId: p.id, bid: 0, tricks: 0,
       piratesCaptured: 0, mermaidDefeatsSkullKing: false, mermaidsCaptured: 0,
-      raieManta: false, davyJonesCreatures: 0, goldBet: false, lootPoints: 0,
+      raieManta: false, davyJonesCreatures: 0, lootPoints: 0,
     })),
   };
 }
@@ -252,11 +252,6 @@ export default function GamePage() {
                 <IconButton size="small" color="primary" onClick={() => updatePD(pd.playerId, { bid: Math.min(game.currentRound, pd.bid + 1) })} disabled={pd.bid >= game.currentRound}><Add /></IconButton>
               </Stack>
             </Stack>
-            <FormControlLabel
-              control={<Switch checked={pd.goldBet || false} onChange={(_, c) => updatePD(pd.playerId, { goldBet: c })} color="warning" size="small" />}
-              label={<Typography variant="body2" sx={{ color: 'warning.main', fontWeight: pd.goldBet ? 700 : 400 }}>Pari Gold (x2)</Typography>}
-              sx={{ mt: 1, ml: 0 }}
-            />
           </Card>
           </Grow>
         ))}
@@ -310,7 +305,7 @@ export default function GamePage() {
           <Grow in timeout={300 + idx * 100} key={pd.playerId}>
           <Card sx={{ p: 2 }}>
             <Typography fontWeight={700} gutterBottom color="primary.main">
-              {getPlayerName(pd.playerId)} (annonce : {pd.bid}{pd.goldBet ? ' - GOLD' : ''})
+              {getPlayerName(pd.playerId)} (annonce : {pd.bid})
             </Typography>
             {/* Tricks */}
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
@@ -410,7 +405,7 @@ export default function GamePage() {
                 <Box>
                   <Typography fontWeight={700}>{getPlayerName(pd.playerId)}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Annonce : {pd.bid}{pd.goldBet ? ' (Gold)' : ''} | Plis : {pd.tricks}
+                    Annonce : {pd.bid} | Plis : {pd.tricks}
                   </Typography>
                 </Box>
                 <Box sx={{ textAlign: 'right' }}>
@@ -422,7 +417,6 @@ export default function GamePage() {
                   >
                     {score.totalRoundScore >= 0 ? '+' : ''}{score.totalRoundScore}
                   </Typography>
-                  {pd.goldBet && <Typography variant="caption" color="warning.main">Gold x2 </Typography>}
                   {score.bonusScore > 0 && <Typography variant="caption" color="warning.main">Bonus : +{score.bonusScore}</Typography>}
                   {score.lootScore !== 0 && <Typography variant="caption" color="text.secondary"> Butin : {score.lootScore > 0 ? '+' : ''}{score.lootScore}</Typography>}
                 </Box>

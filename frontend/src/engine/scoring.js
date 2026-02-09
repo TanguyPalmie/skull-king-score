@@ -1,19 +1,18 @@
 /**
  * Calculate the score for a single player in a single round.
  *
- * Base scoring:
- *   bid > 0 met  → 20×bid + 10×tricks
- *   bid = 0 met  → 10×roundNumber
+ * Base scoring (official Skull King rules):
+ *   bid > 0 met  → +20×bid
+ *   bid = 0 met  → +10×roundNumber
  *   bid > 0 miss → -10×|tricks-bid|
  *   bid = 0 miss → -10×roundNumber
  *
- * Bonus fields (always apply):
+ * Bonus fields (only apply when bid is met):
  *   piratesCaptured         – pirates captured by SK (+30 each)
  *   mermaidDefeatsSkullKing – mermaid beats SK (+50)
  *   mermaidsCaptured        – mermaids captured by SK (+20 each)
  *   raieManta               – captured the Manta Ray (+20)
  *   davyJonesCreatures      – creatures killed by Davy Jones (+30 each)
- *   goldBet                 – pari gold: doubles the base score
  *   lootPoints              – free-form butin points
  */
 export function calculateRoundScore(data, roundNumber) {
@@ -24,28 +23,26 @@ export function calculateRoundScore(data, roundNumber) {
     mermaidsCaptured = 0,
     raieManta = false,
     davyJonesCreatures = 0,
-    goldBet = false,
     lootPoints = 0,
   } = data;
 
+  const bidMet = tricks === bid;
+
   let baseScore;
-  if (tricks === bid) {
-    baseScore = bid > 0 ? 20 * bid + 10 * tricks : 10 * roundNumber;
+  if (bidMet) {
+    baseScore = bid > 0 ? 20 * bid : 10 * roundNumber;
   } else {
-    baseScore = bid > 0 ? -10 * Math.abs(tricks - bid) : -10 * roundNumber;
+    baseScore = bid === 0 ? -10 * roundNumber : -10 * Math.abs(tricks - bid);
   }
 
-  // Gold bet doubles the base score (reward or penalty)
-  if (goldBet) {
-    baseScore *= 2;
-  }
-
-  const bonusScore =
-    piratesCaptured * 30 +
-    (mermaidDefeatsSkullKing ? 50 : 0) +
-    mermaidsCaptured * 20 +
-    (raieManta ? 20 : 0) +
-    davyJonesCreatures * 30;
+  // Bonuses only count when bid is met
+  const bonusScore = bidMet
+    ? piratesCaptured * 30 +
+      (mermaidDefeatsSkullKing ? 50 : 0) +
+      mermaidsCaptured * 20 +
+      (raieManta ? 20 : 0) +
+      davyJonesCreatures * 30
+    : 0;
 
   const lootScore = lootPoints || 0;
 
