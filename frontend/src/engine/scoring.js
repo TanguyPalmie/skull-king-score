@@ -1,12 +1,13 @@
 /**
  * Calculate the score for a single player in a single round.
  *
- * Base scoring:
- *   bid > 0 met  → 20×bid
- *   bid = 0 met  → 10×roundNumber
- *   bid missed   → -10×|tricks-bid|
+ * Base scoring (official Skull King rules):
+ *   bid > 0 met  → +20×bid
+ *   bid = 0 met  → +10×roundNumber
+ *   bid > 0 miss → -10×|tricks-bid|
+ *   bid = 0 miss → -10×roundNumber
  *
- * Bonus fields (always apply):
+ * Bonus fields (only apply when bid is met):
  *   piratesCaptured         – pirates captured by SK (+30 each)
  *   mermaidDefeatsSkullKing – mermaid beats SK (+50)
  *   mermaidsCaptured        – mermaids captured by SK (+20 each)
@@ -25,19 +26,23 @@ export function calculateRoundScore(data, roundNumber) {
     lootPoints = 0,
   } = data;
 
+  const bidMet = tricks === bid;
+
   let baseScore;
-  if (tricks === bid) {
+  if (bidMet) {
     baseScore = bid > 0 ? 20 * bid : 10 * roundNumber;
   } else {
-    baseScore = -10 * Math.abs(tricks - bid);
+    baseScore = bid === 0 ? -10 * roundNumber : -10 * Math.abs(tricks - bid);
   }
 
-  const bonusScore =
-    piratesCaptured * 30 +
-    (mermaidDefeatsSkullKing ? 50 : 0) +
-    mermaidsCaptured * 20 +
-    (raieManta ? 20 : 0) +
-    davyJonesCreatures * 30;
+  // Bonuses only count when bid is met
+  const bonusScore = bidMet
+    ? piratesCaptured * 30 +
+      (mermaidDefeatsSkullKing ? 50 : 0) +
+      mermaidsCaptured * 20 +
+      (raieManta ? 20 : 0) +
+      davyJonesCreatures * 30
+    : 0;
 
   const lootScore = lootPoints || 0;
 
