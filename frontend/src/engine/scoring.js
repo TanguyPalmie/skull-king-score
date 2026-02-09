@@ -10,8 +10,6 @@
  * Bonus fields (only apply when bid is met):
  *   piratesCaptured         – pirates captured by SK (+30 each)
  *   mermaidDefeatsSkullKing – mermaid beats SK (+50)
- *   mermaidsCaptured        – mermaids captured by SK (+20 each)
- *   raieManta               – captured the Manta Ray (+20)
  *   davyJonesCreatures      – creatures killed by Davy Jones (+30 each)
  *   lootPoints              – free-form butin points
  */
@@ -20,8 +18,6 @@ export function calculateRoundScore(data, roundNumber) {
     bid, tricks,
     piratesCaptured = 0,
     mermaidDefeatsSkullKing = false,
-    mermaidsCaptured = 0,
-    raieManta = false,
     davyJonesCreatures = 0,
     lootPoints = 0,
   } = data;
@@ -39,8 +35,6 @@ export function calculateRoundScore(data, roundNumber) {
   const bonusScore = bidMet
     ? piratesCaptured * 30 +
       (mermaidDefeatsSkullKing ? 50 : 0) +
-      mermaidsCaptured * 20 +
-      (raieManta ? 20 : 0) +
       davyJonesCreatures * 30
     : 0;
 

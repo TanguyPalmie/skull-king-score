@@ -53,8 +53,8 @@ function createRoundData(players, roundNumber) {
     roundNumber, completed: false,
     playerData: players.map((p) => ({
       playerId: p.id, bid: 0, tricks: 0,
-      piratesCaptured: 0, mermaidDefeatsSkullKing: false, mermaidsCaptured: 0,
-      raieManta: false, davyJonesCreatures: 0, lootPoints: 0,
+      piratesCaptured: 0, mermaidDefeatsSkullKing: false,
+      davyJonesCreatures: 0, lootPoints: 0,
     })),
   };
 }
@@ -210,7 +210,7 @@ export default function GamePage() {
             <Box>
               <Typography fontWeight={600} color={game.extension ? 'warning.main' : 'text.primary'}>Extension</Typography>
               <Typography variant="caption" color="text.secondary">
-                Ajoute le Second du SK (pirate ++), Davy Jones (+30/creature), Raie Manta (+20), Sirenes capturees (+20)
+                Ajoute le Second du SK (pirate ++), Davy Jones (+30/creature)
               </Typography>
             </Box>
           }
@@ -330,29 +330,16 @@ export default function GamePage() {
             {/* Mermaid beats SK */}
             <FormControlLabel control={<Switch checked={pd.mermaidDefeatsSkullKing} onChange={(_, c) => updatePD(pd.playerId, { mermaidDefeatsSkullKing: c })} color="primary" />} label="Sirene bat le Skull King (+50)" sx={{ mb: 0.5 }} />
             {/* Extension-only bonus fields */}
+            {/* Davy Jones (extension) */}
             {game.extension && (
-              <>
-                {/* Mermaids captured by SK */}
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                  <Typography variant="body2">Sirenes capturees par SK (+20)</Typography>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { mermaidsCaptured: Math.max(0, (pd.mermaidsCaptured || 0) - 1) })} disabled={!pd.mermaidsCaptured}><Remove /></IconButton>
-                    <Chip label={String(pd.mermaidsCaptured || 0)} sx={{ minWidth: 40 }} />
-                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { mermaidsCaptured: (pd.mermaidsCaptured || 0) + 1 })}><Add /></IconButton>
-                  </Stack>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography variant="body2">Davy Jones - creatures tuees (+30)</Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: Math.max(0, (pd.davyJonesCreatures || 0) - 1) })} disabled={!pd.davyJonesCreatures}><Remove /></IconButton>
+                  <Chip label={String(pd.davyJonesCreatures || 0)} sx={{ minWidth: 40 }} />
+                  <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: (pd.davyJonesCreatures || 0) + 1 })}><Add /></IconButton>
                 </Stack>
-                {/* Davy Jones */}
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                  <Typography variant="body2">Davy Jones - creatures tuees (+30)</Typography>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: Math.max(0, (pd.davyJonesCreatures || 0) - 1) })} disabled={!pd.davyJonesCreatures}><Remove /></IconButton>
-                    <Chip label={String(pd.davyJonesCreatures || 0)} sx={{ minWidth: 40 }} />
-                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: (pd.davyJonesCreatures || 0) + 1 })}><Add /></IconButton>
-                  </Stack>
-                </Stack>
-                {/* Raie Manta */}
-                <FormControlLabel control={<Switch checked={pd.raieManta || false} onChange={(_, c) => updatePD(pd.playerId, { raieManta: c })} color="secondary" />} label="Raie Manta capturee (+20)" sx={{ mb: 0.5 }} />
-              </>
+              </Stack>
             )}
             {/* Loot */}
             {settings.lootEnabled && (
