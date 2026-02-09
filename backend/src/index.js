@@ -32,10 +32,14 @@ async function start() {
   while (retries > 0) {
     try {
       await pool.query('SELECT 1');
+      console.log('Database connection established');
       break;
-    } catch {
+    } catch (err) {
       retries--;
-      console.log(`Waiting for database... (${retries} retries left)`);
+      console.log(`Waiting for database... (${retries} retries left) — ${err.message}`);
+      if (retries === 0) {
+        console.error('Could not connect to database after all retries:', err.message);
+      }
       await new Promise((r) => setTimeout(r, 2000));
     }
   }
