@@ -6,7 +6,7 @@ import {
   Fade, Grow, Slide, Zoom, LinearProgress,
 } from '@mui/material';
 import { Add, Remove, Delete, PhotoCamera, SkipNext, Stop } from '@mui/icons-material';
-import { keyframes } from '@mui/system';
+import { keyframes } from '@mui/material/styles';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { saveGameLocal, loadGameLocal, clearGameLocal, loadSettingsLocal, generateId } from '../storage/localStorage.js';
 import { calculateRoundScore } from '../engine/scoring.js';
