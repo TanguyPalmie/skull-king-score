@@ -386,6 +386,25 @@ export default function GamePage() {
                 </Stack>
               </>
             )}
+            {/* Loot / Butin */}
+            {settings.lootEnabled && (
+              <Box sx={{ mt: 1.5 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>Points de Butin</Typography>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  {settings.lootValues.map((val) => (
+                    <Button key={val} size="small" variant="outlined" onClick={() => updatePD(pd.playerId, { lootPoints: (pd.lootPoints || 0) + val })} sx={{ minWidth: 60 }}>
+                      {val > 0 ? `+${val}` : String(val)}
+                    </Button>
+                  ))}
+                  <Button size="small" variant="text" color="error" onClick={() => updatePD(pd.playerId, { lootPoints: 0 })}>Reset</Button>
+                </Stack>
+                {(pd.lootPoints || 0) !== 0 && (
+                  <Typography variant="body2" sx={{ mt: 0.5, color: pd.lootPoints > 0 ? 'success.main' : 'error.main' }}>
+                    Butin : {pd.lootPoints > 0 ? '+' : ''}{pd.lootPoints}
+                  </Typography>
+                )}
+              </Box>
+            )}
           </Card>
           </Grow>
         ))}
