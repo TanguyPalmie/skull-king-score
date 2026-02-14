@@ -4,7 +4,7 @@
  * Base scoring (official Skull King / Roi des Os rules):
  *   bid > 0 met  → +20×bid
  *   bid = 0 met  → +10×roundNumber
- *   bid > 0 miss → -10×|tricks-bid|
+ *   bid > 0 miss → -10 par ecart
  *   bid = 0 miss → -10×roundNumber
  *
  * Bonus fields (only apply when bid is met, except Davy Jones):
@@ -40,7 +40,7 @@ export function calculateRoundScore(data, roundNumber) {
   if (bidMet) {
     baseScore = bid > 0 ? 20 * bid : 10 * roundNumber;
   } else {
-    baseScore = bid === 0 ? -10 * roundNumber : -10 * Math.abs(tricks - bid);
+    baseScore = bid === 0 ? -10 * roundNumber : -10;
   }
 
   // Bonuses only count when bid is met (except Davy Jones)

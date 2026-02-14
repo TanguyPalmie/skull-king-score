@@ -39,13 +39,17 @@ describe('calculateRoundScore', () => {
     const r = calculateRoundScore(makeData({ bid: 3, tricks: 3 }), 4);
     expect(r.baseScore).toBe(60);
   });
-  it('bid>0 not met (under) → -10×|diff|', () => {
+  it('bid>0 not met (under) → -10', () => {
     const r = calculateRoundScore(makeData({ bid: 3, tricks: 1 }), 4);
-    expect(r.baseScore).toBe(-20);
+    expect(r.baseScore).toBe(-10);
   });
-  it('bid>0 not met (over) → -10×|diff|', () => {
+  it('bid>0 not met (over) → -10', () => {
     const r = calculateRoundScore(makeData({ bid: 2, tricks: 5 }), 4);
-    expect(r.baseScore).toBe(-30);
+    expect(r.baseScore).toBe(-10);
+  });
+  it('bid>0 not met (off by 3) → still -10', () => {
+    const r = calculateRoundScore(makeData({ bid: 3, tricks: 0 }), 4);
+    expect(r.baseScore).toBe(-10);
   });
 
   // --- Base bonuses (only when bid met) ---
@@ -86,9 +90,9 @@ describe('calculateRoundScore', () => {
       bid: 3, tricks: 1, piratesCaptured: 2, mermaidDefeatsSkullKing: true,
       color14Captured: 1, secondCaptured: true,
     }), 1);
-    expect(r.baseScore).toBe(-20);
+    expect(r.baseScore).toBe(-10);
     expect(r.bonusScore).toBe(0);
-    expect(r.totalRoundScore).toBe(-20);
+    expect(r.totalRoundScore).toBe(-10);
   });
   it('bonuses forfeited when bid=0 missed', () => {
     const r = calculateRoundScore(makeData({ bid: 0, tricks: 2, piratesCaptured: 1 }), 5);
@@ -105,9 +109,9 @@ describe('calculateRoundScore', () => {
   });
   it('davy jones leviathans count even when bid missed', () => {
     const r = calculateRoundScore(makeData({ bid: 3, tricks: 1, davyJonesLeviathans: 2 }), 1);
-    expect(r.baseScore).toBe(-20);
+    expect(r.baseScore).toBe(-10);
     expect(r.bonusScore).toBe(40);
-    expect(r.totalRoundScore).toBe(20); // -20 + 40
+    expect(r.totalRoundScore).toBe(30); // -10 + 40
   });
 
   // --- Extension star cards ---
@@ -159,9 +163,9 @@ describe('calculateRoundScore', () => {
       secondCaptured: true, butinAlliance: 1,
       davyJonesLeviathans: 2, eightStarCount: 1,
     }), 2);
-    expect(r.baseScore).toBe(-10);
+    expect(r.baseScore).toBe(-10); // flat -10
     expect(r.bonusScore).toBe(40); // only 2×20 davy jones
-    expect(r.totalRoundScore).toBe(30); // -10 + 40
+    expect(r.totalRoundScore).toBe(30);
   });
 });
 
