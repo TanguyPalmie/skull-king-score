@@ -8,13 +8,8 @@ services:
       POSTGRES_DB: skullking
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U skullking"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+    networks:
+      - internal
 
   backend:
     build: ./backend
@@ -24,22 +19,36 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://skullking:skullking_secret@db:5432/skullking
-      JWT_SECRET: change-me-in-production-skull-king-2024
-      NODE_ENV: development
+      JWT_SECRET: change-me-in-production
+      NODE_ENV: production
       PORT: 3001
-      FRONTEND_URL: http://localhost:5173
-    ports:
-      - "3001:3001"
+      FRONTEND_URL: https://sk.palmie.net
+    networks:
+      - internal
 
   frontend:
     build: ./frontend
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:3001/api
+      VITE_API_URL: https://sk.palmie.net/api
+    networks:
+      - internal
+      - traefik-public
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sk.rule=Host(`sk.palmie.net`)
+      - traefik.http.routers.sk.entrypoints=websecure
+      - traefik.http.routers.sk.tls=true
+      - traefik.http.routers.sk.tls.certresolver=letsencrypt
+      - traefik.http.services.sk.loadbalancer.server.port=5173
+
+networks:
+  internal:
+  traefik-public:
+    external: true
+    name: traefik-public
 
 volumes:
   pgdata:
