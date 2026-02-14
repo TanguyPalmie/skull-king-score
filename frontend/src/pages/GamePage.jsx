@@ -53,8 +53,12 @@ function createRoundData(players, roundNumber) {
     roundNumber, completed: false,
     playerData: players.map((p) => ({
       playerId: p.id, bid: 0, tricks: 0,
+      color14Captured: 0, jollyRoger14Captured: false,
       piratesCaptured: 0, mermaidDefeatsSkullKing: false,
-      davyJonesCreatures: 0, lootPoints: 0,
+      secondCaptured: false, butinAlliance: 0,
+      davyJonesLeviathans: 0,
+      sevenStarCount: 0, eightStarCount: 0,
+      lootPoints: 0,
     })),
   };
 }
@@ -210,7 +214,7 @@ export default function GamePage() {
             <Box>
               <Typography fontWeight={600} color={game.extension ? 'warning.main' : 'text.primary'}>Extension</Typography>
               <Typography variant="caption" color="text.secondary">
-                Ajoute le Second du SK (pirate ++), Davy Jones (+30/creature)
+                Second (+30), Casier Davy Jones (+20/leviathan), Butin (+20), 7★ (-5), 8★ (+5)
               </Typography>
             </Box>
           }
@@ -318,9 +322,20 @@ export default function GamePage() {
             </Stack>
             <Divider sx={{ my: 1 }} />
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1, color: 'warning.main' }}>Bonus</Typography>
+            {/* 14 de couleur */}
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Typography variant="body2">14 de couleur captures (+10)</Typography>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <IconButton size="small" onClick={() => updatePD(pd.playerId, { color14Captured: Math.max(0, pd.color14Captured - 1) })} disabled={pd.color14Captured <= 0}><Remove /></IconButton>
+                <Chip label={String(pd.color14Captured)} sx={{ minWidth: 40 }} />
+                <IconButton size="small" onClick={() => updatePD(pd.playerId, { color14Captured: pd.color14Captured + 1 })}><Add /></IconButton>
+              </Stack>
+            </Stack>
+            {/* 14 Jolly Roger */}
+            <FormControlLabel control={<Switch checked={pd.jollyRoger14Captured || false} onChange={(_, c) => updatePD(pd.playerId, { jollyRoger14Captured: c })} color="primary" />} label="14 Jolly Roger capture (+20)" sx={{ mb: 0.5 }} />
             {/* Pirates captured by SK */}
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-              <Typography variant="body2">Pirates captures par SK (+30)</Typography>
+              <Typography variant="body2">SK capture des Pirates (+30)</Typography>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <IconButton size="small" onClick={() => updatePD(pd.playerId, { piratesCaptured: Math.max(0, pd.piratesCaptured - 1) })} disabled={pd.piratesCaptured <= 0}><Remove /></IconButton>
                 <Chip label={String(pd.piratesCaptured)} sx={{ minWidth: 40 }} />
@@ -328,37 +343,48 @@ export default function GamePage() {
               </Stack>
             </Stack>
             {/* Mermaid beats SK */}
-            <FormControlLabel control={<Switch checked={pd.mermaidDefeatsSkullKing} onChange={(_, c) => updatePD(pd.playerId, { mermaidDefeatsSkullKing: c })} color="primary" />} label="Sirene bat le Skull King (+50)" sx={{ mb: 0.5 }} />
+            <FormControlLabel control={<Switch checked={pd.mermaidDefeatsSkullKing} onChange={(_, c) => updatePD(pd.playerId, { mermaidDefeatsSkullKing: c })} color="primary" />} label="Sirene capture le Roi des Os (+50)" sx={{ mb: 0.5 }} />
             {/* Extension-only bonus fields */}
-            {/* Davy Jones (extension) */}
             {game.extension && (
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                <Typography variant="body2">Davy Jones - creatures tuees (+30)</Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: Math.max(0, (pd.davyJonesCreatures || 0) - 1) })} disabled={!pd.davyJonesCreatures}><Remove /></IconButton>
-                  <Chip label={String(pd.davyJonesCreatures || 0)} sx={{ minWidth: 40 }} />
-                  <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesCreatures: (pd.davyJonesCreatures || 0) + 1 })}><Add /></IconButton>
+              <>
+                {/* Second captured */}
+                <FormControlLabel control={<Switch checked={pd.secondCaptured || false} onChange={(_, c) => updatePD(pd.playerId, { secondCaptured: c })} color="warning" />} label="SK/Sirene capture le Second (+30)" sx={{ mb: 0.5 }} />
+                {/* Butin alliance */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="body2">Alliances Butin reussies (+20)</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { butinAlliance: Math.max(0, (pd.butinAlliance || 0) - 1) })} disabled={!pd.butinAlliance}><Remove /></IconButton>
+                    <Chip label={String(pd.butinAlliance || 0)} sx={{ minWidth: 40 }} />
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { butinAlliance: (pd.butinAlliance || 0) + 1 })}><Add /></IconButton>
+                  </Stack>
                 </Stack>
-              </Stack>
-            )}
-            {/* Loot */}
-            {settings.lootEnabled && (
-              <Box sx={{ mt: 1.5 }}>
-                <Typography variant="body2" sx={{ mb: 1 }}>Points de Butin</Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                  {settings.lootValues.map((val) => (
-                    <Button key={val} size="small" variant="outlined" onClick={() => updatePD(pd.playerId, { lootPoints: pd.lootPoints + val })} sx={{ minWidth: 60 }}>
-                      {val > 0 ? `+${val}` : String(val)}
-                    </Button>
-                  ))}
-                  <Button size="small" variant="text" color="error" onClick={() => updatePD(pd.playerId, { lootPoints: 0 })}>Reset</Button>
+                {/* Davy Jones */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="body2">Casier Davy Jones (+20/leviathan)</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesLeviathans: Math.max(0, (pd.davyJonesLeviathans || 0) - 1) })} disabled={!pd.davyJonesLeviathans}><Remove /></IconButton>
+                    <Chip label={String(pd.davyJonesLeviathans || 0)} sx={{ minWidth: 40 }} />
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { davyJonesLeviathans: (pd.davyJonesLeviathans || 0) + 1 })}><Add /></IconButton>
+                  </Stack>
                 </Stack>
-                {pd.lootPoints !== 0 && (
-                  <Typography variant="body2" sx={{ mt: 0.5, color: pd.lootPoints > 0 ? 'success.main' : 'error.main' }}>
-                    Butin : {pd.lootPoints > 0 ? '+' : ''}{pd.lootPoints}
-                  </Typography>
-                )}
-              </Box>
+                {/* 7★ and 8★ */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="body2">7★ captures (-5)</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { sevenStarCount: Math.max(0, (pd.sevenStarCount || 0) - 1) })} disabled={!pd.sevenStarCount}><Remove /></IconButton>
+                    <Chip label={String(pd.sevenStarCount || 0)} sx={{ minWidth: 40 }} />
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { sevenStarCount: (pd.sevenStarCount || 0) + 1 })}><Add /></IconButton>
+                  </Stack>
+                </Stack>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="body2">8★ captures (+5)</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { eightStarCount: Math.max(0, (pd.eightStarCount || 0) - 1) })} disabled={!pd.eightStarCount}><Remove /></IconButton>
+                    <Chip label={String(pd.eightStarCount || 0)} sx={{ minWidth: 40 }} />
+                    <IconButton size="small" onClick={() => updatePD(pd.playerId, { eightStarCount: (pd.eightStarCount || 0) + 1 })}><Add /></IconButton>
+                  </Stack>
+                </Stack>
+              </>
             )}
           </Card>
           </Grow>
