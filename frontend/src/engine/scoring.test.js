@@ -6,11 +6,15 @@ function makeData(overrides = {}) {
     playerId: 'p1',
     bid: 0,
     tricks: 0,
+    color14Captured: 0,
+    jollyRoger14Captured: false,
     piratesCaptured: 0,
     mermaidDefeatsSkullKing: false,
-    mermaidsCaptured: 0,
-    raieManta: false,
-    davyJonesCreatures: 0,
+    secondCaptured: false,
+    butinAlliance: 0,
+    davyJonesLeviathans: 0,
+    sevenStarCount: 0,
+    eightStarCount: 0,
     lootPoints: 0,
     ...overrides,
   };
@@ -44,19 +48,44 @@ describe('calculateRoundScore', () => {
     expect(r.baseScore).toBe(-30);
   });
 
-  // --- Bonuses only when bid is met ---
-  it('pirates captured bonus when bid met → +30 each', () => {
+  // --- Base bonuses (only when bid met) ---
+  it('color 14 captured → +10 each', () => {
+    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, color14Captured: 3 }), 1);
+    expect(r.bonusScore).toBe(30);
+    expect(r.totalRoundScore).toBe(70); // 40 + 30
+  });
+  it('jolly roger 14 captured → +20', () => {
+    const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, jollyRoger14Captured: true }), 1);
+    expect(r.bonusScore).toBe(20);
+    expect(r.totalRoundScore).toBe(40); // 20 + 20
+  });
+  it('pirates captured by SK → +30 each', () => {
     const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, piratesCaptured: 3 }), 1);
     expect(r.bonusScore).toBe(90);
     expect(r.totalRoundScore).toBe(130); // 40 + 90
   });
-  it('mermaid defeats skull king when bid met → +50', () => {
+  it('mermaid defeats skull king → +50', () => {
     const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, mermaidDefeatsSkullKing: true }), 2);
     expect(r.bonusScore).toBe(50);
     expect(r.totalRoundScore).toBe(70); // 20 + 50
   });
+  it('second captured by SK/mermaid → +30', () => {
+    const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, secondCaptured: true }), 1);
+    expect(r.bonusScore).toBe(30);
+    expect(r.totalRoundScore).toBe(50); // 20 + 30
+  });
+  it('butin alliance → +20 each', () => {
+    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, butinAlliance: 2 }), 1);
+    expect(r.bonusScore).toBe(40);
+    expect(r.totalRoundScore).toBe(80); // 40 + 40
+  });
+
+  // --- Bonuses forfeited when bid missed ---
   it('bonuses forfeited when bid is NOT met', () => {
-    const r = calculateRoundScore(makeData({ bid: 3, tricks: 1, piratesCaptured: 2, mermaidDefeatsSkullKing: true }), 1);
+    const r = calculateRoundScore(makeData({
+      bid: 3, tricks: 1, piratesCaptured: 2, mermaidDefeatsSkullKing: true,
+      color14Captured: 1, secondCaptured: true,
+    }), 1);
     expect(r.baseScore).toBe(-20);
     expect(r.bonusScore).toBe(0);
     expect(r.totalRoundScore).toBe(-20);
@@ -67,7 +96,38 @@ describe('calculateRoundScore', () => {
     expect(r.bonusScore).toBe(0);
     expect(r.totalRoundScore).toBe(-50);
   });
-  it('loot points added when bid met', () => {
+
+  // --- Davy Jones: always applies even when bid missed ---
+  it('davy jones leviathans → +20 each (bid met)', () => {
+    const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, davyJonesLeviathans: 2 }), 1);
+    expect(r.bonusScore).toBe(40);
+    expect(r.totalRoundScore).toBe(60); // 20 + 40
+  });
+  it('davy jones leviathans count even when bid missed', () => {
+    const r = calculateRoundScore(makeData({ bid: 3, tricks: 1, davyJonesLeviathans: 2 }), 1);
+    expect(r.baseScore).toBe(-20);
+    expect(r.bonusScore).toBe(40);
+    expect(r.totalRoundScore).toBe(20); // -20 + 40
+  });
+
+  // --- Extension star cards ---
+  it('7★ captured → -5 each (bid met)', () => {
+    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, sevenStarCount: 2 }), 1);
+    expect(r.bonusScore).toBe(-10);
+    expect(r.totalRoundScore).toBe(30); // 40 - 10
+  });
+  it('8★ captured → +5 each (bid met)', () => {
+    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, eightStarCount: 3 }), 1);
+    expect(r.bonusScore).toBe(15);
+    expect(r.totalRoundScore).toBe(55); // 40 + 15
+  });
+  it('7★ and 8★ forfeited when bid missed', () => {
+    const r = calculateRoundScore(makeData({ bid: 3, tricks: 1, sevenStarCount: 1, eightStarCount: 2 }), 1);
+    expect(r.bonusScore).toBe(0);
+  });
+
+  // --- Loot ---
+  it('loot points added', () => {
     const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, lootPoints: 50 }), 1);
     expect(r.totalRoundScore).toBe(70); // 20 + 50
   });
@@ -76,48 +136,40 @@ describe('calculateRoundScore', () => {
     expect(r.totalRoundScore).toBe(10); // 20 - 10
   });
 
-  // --- Extension bonus cards (only when bid met) ---
-  it('mermaids captured by SK → +20 each', () => {
-    const r = calculateRoundScore(makeData({ bid: 2, tricks: 2, mermaidsCaptured: 2 }), 1);
-    expect(r.bonusScore).toBe(40);
-    expect(r.totalRoundScore).toBe(80); // 40 + 40
-  });
-  it('raie manta → +20', () => {
-    const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, raieManta: true }), 1);
-    expect(r.bonusScore).toBe(20);
-    expect(r.totalRoundScore).toBe(40); // 20 + 20
-  });
-  it('davy jones creatures → +30 each', () => {
-    const r = calculateRoundScore(makeData({ bid: 1, tricks: 1, davyJonesCreatures: 2 }), 1);
-    expect(r.bonusScore).toBe(60);
-    expect(r.totalRoundScore).toBe(80); // 20 + 60
-  });
+  // --- All bonuses stacking ---
   it('all bonuses stack together when bid met', () => {
     const r = calculateRoundScore(makeData({
-      bid: 3, tricks: 3, piratesCaptured: 1, mermaidDefeatsSkullKing: true,
-      mermaidsCaptured: 1, raieManta: true, davyJonesCreatures: 1,
+      bid: 3, tricks: 3,
+      color14Captured: 2, jollyRoger14Captured: true,
+      piratesCaptured: 1, mermaidDefeatsSkullKing: true,
+      secondCaptured: true, butinAlliance: 1,
+      davyJonesLeviathans: 1, eightStarCount: 1,
     }), 2);
-    // base: 20×3=60, bonus: 30+50+20+20+30=150
+    // base: 20×3=60
+    // bonus: 20+20+30+50+30+20+20+5 = 195
     expect(r.baseScore).toBe(60);
-    expect(r.bonusScore).toBe(150);
-    expect(r.totalRoundScore).toBe(210);
+    expect(r.bonusScore).toBe(195);
+    expect(r.totalRoundScore).toBe(255);
   });
-  it('all bonuses lost when bid missed despite having bonus cards', () => {
+  it('only davy jones counts when bid missed with all bonuses', () => {
     const r = calculateRoundScore(makeData({
-      bid: 3, tricks: 2, piratesCaptured: 1, mermaidDefeatsSkullKing: true,
-      mermaidsCaptured: 1, raieManta: true, davyJonesCreatures: 1,
+      bid: 3, tricks: 2,
+      color14Captured: 2, jollyRoger14Captured: true,
+      piratesCaptured: 1, mermaidDefeatsSkullKing: true,
+      secondCaptured: true, butinAlliance: 1,
+      davyJonesLeviathans: 2, eightStarCount: 1,
     }), 2);
     expect(r.baseScore).toBe(-10);
-    expect(r.bonusScore).toBe(0);
-    expect(r.totalRoundScore).toBe(-10);
+    expect(r.bonusScore).toBe(40); // only 2×20 davy jones
+    expect(r.totalRoundScore).toBe(30); // -10 + 40
   });
 });
 
 describe('calculateAllRoundScores', () => {
   it('calculates for multiple players', () => {
     const scores = calculateAllRoundScores([
-      makeData({ playerId: 'p1', bid: 2, tricks: 2 }), // 20×2=40
-      makeData({ playerId: 'p2', bid: 0, tricks: 0 }), // 10×3=30
+      makeData({ playerId: 'p1', bid: 2, tricks: 2 }), // 40
+      makeData({ playerId: 'p2', bid: 0, tricks: 0 }), // 30
     ], 3);
     expect(scores[0].totalRoundScore).toBe(40);
     expect(scores[1].totalRoundScore).toBe(30);

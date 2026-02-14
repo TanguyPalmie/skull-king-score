@@ -1,28 +1,36 @@
 /**
  * Calculate the score for a single player in a single round.
  *
- * Base scoring (official Skull King rules):
+ * Base scoring (official Skull King / Roi des Os rules):
  *   bid > 0 met  → +20×bid
  *   bid = 0 met  → +10×roundNumber
  *   bid > 0 miss → -10×|tricks-bid|
  *   bid = 0 miss → -10×roundNumber
  *
- * Bonus fields (only apply when bid is met):
- *   piratesCaptured         – pirates captured by SK (+30 each)
- *   mermaidDefeatsSkullKing – mermaid beats SK (+50)
- *   mermaidsCaptured        – mermaids captured by SK (+20 each)
- *   raieManta               – captured the Manta Ray (+20)
- *   davyJonesCreatures      – creatures killed by Davy Jones (+30 each)
- *   lootPoints              – free-form butin points
+ * Bonus fields (only apply when bid is met, except Davy Jones):
+ *   color14Captured          – 14 de couleur captures (+10 each)
+ *   jollyRoger14Captured     – 14 Jolly Roger capture (+20)
+ *   piratesCaptured          – pirates captures par SK (+30 each)
+ *   mermaidDefeatsSkullKing  – sirene capture le Roi des Os (+50)
+ *   secondCaptured           – SK/Sirene capture le Second (+30)
+ *   butinAlliance            – alliances Butin reussies (+20 each)
+ *   davyJonesLeviathans      – Casier de Davy Jones, leviathans detruits (+20 each, ALWAYS applies)
+ *   sevenStarCount           – 7★ captures (-5 each, extension)
+ *   eightStarCount           – 8★ captures (+5 each, extension)
+ *   lootPoints               – free-form butin points
  */
 export function calculateRoundScore(data, roundNumber) {
   const {
     bid, tricks,
+    color14Captured = 0,
+    jollyRoger14Captured = false,
     piratesCaptured = 0,
     mermaidDefeatsSkullKing = false,
-    mermaidsCaptured = 0,
-    raieManta = false,
-    davyJonesCreatures = 0,
+    secondCaptured = false,
+    butinAlliance = 0,
+    davyJonesLeviathans = 0,
+    sevenStarCount = 0,
+    eightStarCount = 0,
     lootPoints = 0,
   } = data;
 
@@ -35,14 +43,18 @@ export function calculateRoundScore(data, roundNumber) {
     baseScore = bid === 0 ? -10 * roundNumber : -10 * Math.abs(tricks - bid);
   }
 
-  // Bonuses only count when bid is met
+  // Bonuses only count when bid is met (except Davy Jones)
   const bonusScore = bidMet
-    ? piratesCaptured * 30 +
+    ? color14Captured * 10 +
+      (jollyRoger14Captured ? 20 : 0) +
+      piratesCaptured * 30 +
       (mermaidDefeatsSkullKing ? 50 : 0) +
-      mermaidsCaptured * 20 +
-      (raieManta ? 20 : 0) +
-      davyJonesCreatures * 30
-    : 0;
+      (secondCaptured ? 30 : 0) +
+      butinAlliance * 20 +
+      davyJonesLeviathans * 20 +
+      sevenStarCount * -5 +
+      eightStarCount * 5
+    : davyJonesLeviathans * 20;
 
   const lootScore = lootPoints || 0;
 
