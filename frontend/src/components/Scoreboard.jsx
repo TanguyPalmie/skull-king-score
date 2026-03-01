@@ -38,7 +38,7 @@ export default function Scoreboard({ game }) {
               const player = getPlayer(entry.playerId);
               const medal = RANK_MEDALS[entry.rank] || String(entry.rank);
               return (
-                <TableRow key={entry.playerId} sx={entry.rank === 1 ? { bgcolor: 'rgba(212,175,55,0.1)' } : undefined}>
+                <TableRow key={entry.playerId} sx={entry.rank === 1 ? { bgcolor: 'rgba(169,151,134,0.1)' } : undefined}>
                   <TableCell sx={{ fontSize: '1.1rem', width: 40 }}>{medal}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

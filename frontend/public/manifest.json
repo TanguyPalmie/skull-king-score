@@ -1,7 +1,7 @@
 {
-  "name": "Skull King Game Master",
-  "short_name": "Skull King",
-  "description": "Compteur de points et assistant pour le jeu de cartes Skull King",
+  "name": "Game Master - Compteur de Points",
+  "short_name": "Game Master",
+  "description": "Compteur de points pour jeux de societe - Skull King et plus",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a2e",

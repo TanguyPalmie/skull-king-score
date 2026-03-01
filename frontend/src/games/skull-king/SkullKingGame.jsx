@@ -1,0 +1,1099 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Container,
+  Stepper,
+  Step,
+  StepLabel,
+  Card,
+  TextField,
+  IconButton,
+  Avatar,
+  Stack,
+  Chip,
+  Switch,
+  FormControlLabel,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
+  Fade,
+  Grow,
+  LinearProgress,
+  Snackbar,
+} from '@mui/material';
+import { Add, Remove, Delete, PhotoCamera, SkipNext, Stop, Share } from '@mui/icons-material';
+import { keyframes } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
+import { calculateRoundScore } from './scoring.js';
+import Scoreboard from './Scoreboard.jsx';
+import { getAvatarEmoji } from '../../data/pirateAvatars.js';
+import { saveLiveGame, endLiveGame } from '../../api.js';
+
+// Animations
+const popIn = keyframes`
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+`;
+const slideUp = keyframes`
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+`;
+const scorePulse = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+`;
+const shimmer = keyframes`
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+`;
+
+const STORAGE_KEY = 'gamemaster-skull-king-game';
+const MAX_ROUNDS = 10;
+const BONUS_MALUS_VALUES = [-10, -5, 5, 10];
+
+function saveGameLocal(game) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(game));
+}
+function loadGameLocal() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+function clearGameLocal() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+const STEPS = ['Inscription', 'Annonces', 'Plis & Bonus', 'Resultats'];
+
+function phaseToStep(phase) {
+  switch (phase) {
+    case 'setup':
+      return 0;
+    case 'bidding':
+      return 1;
+    case 'playing':
+    case 'scoring':
+      return 2;
+    case 'review':
+    case 'finished':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function createEmptyGame() {
+  return {
+    id: generateId(),
+    players: [],
+    rounds: [],
+    currentRound: 1,
+    phase: 'setup',
+    extension: false,
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function createRoundData(players, roundNumber) {
+  return {
+    roundNumber,
+    completed: false,
+    playerData: players.map((p) => ({
+      playerId: p.id,
+      bid: 0,
+      tricks: 0,
+      color14Captured: 0,
+      jollyRoger14Captured: false,
+      piratesCaptured: 0,
+      mermaidDefeatsSkullKing: false,
+      secondCaptured: false,
+      butinAlliance: 0,
+      davyJonesLeviathans: 0,
+      sevenStarCount: 0,
+      eightStarCount: 0,
+      bonusMalusPoints: 0,
+    })),
+  };
+}
+
+/**
+ * Composant principal du jeu Skull King.
+ * Props :
+ *  - players : joueurs selectionnes (depuis les profils)
+ *  - isNew   : true pour demarrer une nouvelle partie
+ */
+export default function SkullKingGame({ players: selectedPlayers, isNew }) {
+  const navigate = useNavigate();
+
+
+  const [game, setGame] = useState(() => {
+    if (isNew) {
+      clearGameLocal();
+      const g = createEmptyGame();
+      // Si des joueurs sont pre-selectionnes, les ajouter
+      if (selectedPlayers && selectedPlayers.length >= 2) {
+        g.players = selectedPlayers.map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatar: p.avatar,
+          photo: p.photo,
+        }));
+      }
+      return g;
+    }
+    return loadGameLocal() || createEmptyGame();
+  });
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmSkip, setConfirmSkip] = useState(false);
+  const [skipTarget, setSkipTarget] = useState(null);
+  const [shareCode, setShareCode] = useState(() => {
+    try {
+      const saved = loadGameLocal();
+      return saved?.shareCode || null;
+    } catch {
+      return null;
+    }
+  });
+  const [shareSnack, setShareSnack] = useState('');
+  const syncTimerRef = useRef(null);
+
+  // Sauvegarder localement a chaque changement
+  useEffect(() => {
+    saveGameLocal({ ...game, shareCode, updatedAt: new Date().toISOString() });
+  }, [game, shareCode]);
+
+  // Sync live game vers le backend (debounced)
+  useEffect(() => {
+    if (!shareCode || game.phase === 'setup') return;
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      saveLiveGame({ game_slug: 'skull-king', state: game, share_code: shareCode }).catch(() => {});
+    }, 2000);
+    return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current); };
+  }, [game, shareCode]);
+
+  const updateGame = useCallback((patch) => setGame((prev) => ({ ...prev, ...patch })), []);
+  const currentRound = game.rounds.find((r) => r.roundNumber === game.currentRound);
+  const updatePD = useCallback((playerId, patch) => {
+    setGame((prev) => ({
+      ...prev,
+      rounds: prev.rounds.map((r) =>
+        r.roundNumber !== prev.currentRound
+          ? r
+          : { ...r, playerData: r.playerData.map((pd) => (pd.playerId === playerId ? { ...pd, ...patch } : pd)) },
+      ),
+    }));
+  }, []);
+  const getPlayerName = useCallback((id) => game.players.find((p) => p.id === id)?.name ?? id, [game.players]);
+  const getPlayerAvatar = useCallback(
+    (id) => {
+      const player = game.players.find((p) => p.id === id);
+      return player?.avatar ? getAvatarEmoji(player.avatar) : null;
+    },
+    [game.players],
+  );
+
+  const addPlayer = useCallback(() => {
+    const name = newPlayerName.trim();
+    if (!name || game.players.length >= 12) return;
+    updateGame({ players: [...game.players, { id: generateId(), name }] });
+    setNewPlayerName('');
+  }, [newPlayerName, game.players, updateGame]);
+
+  const removePlayer = useCallback(
+    (id) => updateGame({ players: game.players.filter((p) => p.id !== id) }),
+    [game.players, updateGame],
+  );
+
+  const handlePhotoUpload = useCallback(
+    (playerId, event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () =>
+        updateGame({ players: game.players.map((p) => (p.id === playerId ? { ...p, photo: reader.result } : p)) });
+      reader.readAsDataURL(file);
+    },
+    [game.players, updateGame],
+  );
+
+  // Phase transitions
+  const startGame = useCallback(() => {
+    if (game.players.length < 2) return;
+    updateGame({ phase: 'bidding', rounds: [createRoundData(game.players, 1)], currentRound: 1 });
+  }, [game.players, updateGame]);
+
+  const finishBidding = useCallback(() => updateGame({ phase: 'scoring' }), [updateGame]);
+
+  const finishScoring = useCallback(
+    () =>
+      setGame((prev) => ({
+        ...prev,
+        rounds: prev.rounds.map((r) => (r.roundNumber !== prev.currentRound ? r : { ...r, completed: true })),
+        phase: 'review',
+      })),
+    [],
+  );
+
+  const nextRound = useCallback(
+    () =>
+      setGame((prev) => {
+        const next = prev.currentRound + 1;
+        if (next > MAX_ROUNDS) return { ...prev, phase: 'finished' };
+        return {
+          ...prev,
+          rounds: [...prev.rounds, createRoundData(prev.players, next)],
+          currentRound: next,
+          phase: 'bidding',
+        };
+      }),
+    [MAX_ROUNDS],
+  );
+
+  const endGame = useCallback(() => {
+    updateGame({ phase: 'finished' });
+    setConfirmEnd(false);
+    if (shareCode) endLiveGame(shareCode).catch(() => {});
+  }, [updateGame, shareCode]);
+
+  const newGame = useCallback(() => {
+    if (shareCode) endLiveGame(shareCode).catch(() => {});
+    clearGameLocal();
+    setShareCode(null);
+    setGame(createEmptyGame());
+  }, [shareCode]);
+
+  const skipToRound = useCallback(
+    (targetRound) => {
+      setGame((prev) => {
+        if (targetRound > MAX_ROUNDS) return { ...prev, phase: 'finished' };
+        return {
+          ...prev,
+          rounds: [...prev.rounds, createRoundData(prev.players, targetRound)],
+          currentRound: targetRound,
+          phase: 'bidding',
+        };
+      });
+      setConfirmSkip(false);
+      setSkipTarget(null);
+    },
+    [MAX_ROUNDS],
+  );
+
+  // Naviguer vers un round precedent pour le modifier
+  const goToRound = useCallback(
+    (roundNumber) => {
+      setGame((prev) => {
+        const targetRound = prev.rounds.find((r) => r.roundNumber === roundNumber);
+        if (!targetRound) return prev;
+        return {
+          ...prev,
+          currentRound: roundNumber,
+          phase: targetRound.completed ? 'review' : 'bidding',
+        };
+      });
+    },
+    [],
+  );
+
+  // Selecteur de rounds cliquable
+  const RoundSelector = () => {
+    if (game.rounds.length <= 1) return null;
+    return (
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Manches :
+        </Typography>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ gap: 0.5 }}>
+          {game.rounds.map((r) => (
+            <Chip
+              key={r.roundNumber}
+              label={r.roundNumber}
+              size="small"
+              variant={r.roundNumber === game.currentRound ? 'filled' : 'outlined'}
+              color={r.completed ? 'success' : r.roundNumber === game.currentRound ? 'primary' : 'default'}
+              onClick={() => goToRound(r.roundNumber)}
+              sx={{
+                minWidth: 36,
+                fontWeight: r.roundNumber === game.currentRound ? 700 : 400,
+                cursor: 'pointer',
+              }}
+            />
+          ))}
+        </Stack>
+      </Box>
+    );
+  };
+
+  // Partager la partie pour le suivi live
+  const startSharing = useCallback(async () => {
+    try {
+      const result = await saveLiveGame({ game_slug: 'skull-king', state: game });
+      setShareCode(result.share_code);
+      setShareSnack(`Code de partage : ${result.share_code}`);
+    } catch {
+      setShareSnack('Erreur lors du partage');
+    }
+  }, [game]);
+
+  const GameMasterControls = ({ showSkip = true }) => (
+    <Stack spacing={1} sx={{ mt: 2 }}>
+      <Stack direction="row" spacing={1}>
+        {showSkip && game.currentRound < MAX_ROUNDS && (
+          <Button
+            variant="outlined"
+            color="warning"
+            size="small"
+            startIcon={<SkipNext />}
+            sx={{ flex: 1 }}
+            onClick={() => {
+              setSkipTarget(game.currentRound + 1);
+              setConfirmSkip(true);
+            }}
+          >
+            Sauter
+          </Button>
+        )}
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          startIcon={<Stop />}
+          sx={{ flex: 1 }}
+          onClick={() => setConfirmEnd(true)}
+        >
+          Terminer
+        </Button>
+      </Stack>
+      {shareCode ? (
+        <Alert severity="info" sx={{ bgcolor: 'rgba(169,151,134,0.1)' }}>
+          Code de partage : <strong>{shareCode}</strong>
+        </Alert>
+      ) : (
+        <Button
+          variant="text"
+          size="small"
+          startIcon={<Share />}
+          onClick={startSharing}
+          sx={{ alignSelf: 'center' }}
+        >
+          Partager la partie en live
+        </Button>
+      )}
+    </Stack>
+  );
+
+  const Dialogs = () => (
+    <>
+      <Dialog open={confirmEnd} onClose={() => setConfirmEnd(false)}>
+        <DialogTitle>Terminer la partie ?</DialogTitle>
+        <DialogContent>
+          <Typography>Voulez-vous vraiment terminer la partie en cours ?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmEnd(false)}>Annuler</Button>
+          <Button onClick={endGame} color="error" variant="contained">
+            Terminer
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={confirmSkip}
+        onClose={() => {
+          setConfirmSkip(false);
+          setSkipTarget(null);
+        }}
+      >
+        <DialogTitle>Sauter la manche {game.currentRound} ?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            La manche {game.currentRound} sera ignoree (aucun score comptabilise). Vous passerez directement a la
+            manche {skipTarget}.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setConfirmSkip(false);
+              setSkipTarget(null);
+            }}
+          >
+            Annuler
+          </Button>
+          <Button onClick={() => skipToRound(skipTarget)} color="warning" variant="contained">
+            Sauter
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+
+  // === SETUP ===
+  if (game.phase === 'setup')
+    return (
+      <Fade in timeout={400}>
+        <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
+          <Typography
+            variant="h5"
+            gutterBottom
+            color="primary.main"
+            sx={{ animation: `${slideUp} 0.5s ease` }}
+          >
+            Inscription des joueurs
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
+            {game.players.length}/12 joueurs (minimum 2)
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            <TextField
+              label="Nom du joueur"
+              value={newPlayerName}
+              onChange={(e) => setNewPlayerName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addPlayer();
+              }}
+              size="small"
+              fullWidth
+            />
+            <Button variant="contained" onClick={addPlayer} disabled={!newPlayerName.trim() || game.players.length >= 12}>
+              Ajouter
+            </Button>
+          </Stack>
+          <Stack spacing={1} sx={{ mb: 3 }}>
+            {game.players.map((player) => (
+              <Card key={player.id} sx={{ p: 1 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ px: 1 }}>
+                  <Avatar
+                    src={player.photo}
+                    sx={{ width: 40, height: 40, bgcolor: 'primary.main', color: 'primary.contrastText' }}
+                  >
+                    {player.avatar ? getAvatarEmoji(player.avatar) : player.name[0].toUpperCase()}
+                  </Avatar>
+                  <Typography sx={{ flex: 1 }}>{player.name}</Typography>
+                  <label style={{ display: 'inline-flex', cursor: 'pointer' }}>
+                    <IconButton size="small" color="primary" component="span">
+                      <PhotoCamera fontSize="small" />
+                    </IconButton>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      hidden
+                      onChange={(ev) => handlePhotoUpload(player.id, ev)}
+                    />
+                  </label>
+                  <IconButton size="small" color="error" onClick={() => removePlayer(player.id)}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+          <Card sx={{ p: 2, mb: 3, border: game.extension ? '1px solid' : 'none', borderColor: 'warning.main' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={game.extension || false}
+                  onChange={(_, c) => updateGame({ extension: c })}
+                  color="warning"
+                />
+              }
+              label={
+                <Box>
+                  <Typography fontWeight={600} color={game.extension ? 'warning.main' : 'text.primary'}>
+                    Extension
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Second (+30), Casier Davy Jones (+20/leviathan), Butin (+20), 7★ (-5), 8★ (+5)
+                  </Typography>
+                </Box>
+              }
+              sx={{ ml: 0, alignItems: 'flex-start' }}
+            />
+          </Card>
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            onClick={startGame}
+            disabled={game.players.length < 2}
+            sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.02)' } }}
+          >
+            Commencer la Partie
+          </Button>
+        </Container>
+      </Fade>
+    );
+
+  // === BIDDING ===
+  if (game.phase === 'bidding' && currentRound)
+    return (
+      <Fade in timeout={400}>
+        <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
+          <Stepper
+            activeStep={phaseToStep('bidding')}
+            alternativeLabel
+            sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}
+          >
+            {STEPS.map((l) => (
+              <Step key={l}>
+                <StepLabel>{l}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          <Alert severity="info" sx={{ mb: 2, bgcolor: 'rgba(169,151,134,0.1)', color: 'text.primary' }}>
+            Manche {game.currentRound}/{MAX_ROUNDS} — Annonces
+          </Alert>
+          <RoundSelector />
+          <Typography variant="h5" gutterBottom color="primary.main">
+            Manche {game.currentRound} — Annonces
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
+            Chaque joueur annonce combien de plis il pense gagner (0 a {game.currentRound}).
+          </Typography>
+          <Stack spacing={2} sx={{ mb: 3 }}>
+            {currentRound.playerData.map((pd, idx) => (
+              <Grow in timeout={300 + idx * 100} key={pd.playerId}>
+                <Card sx={{ p: 2 }}>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Typography fontWeight={600}>{getPlayerName(pd.playerId)}</Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => updatePD(pd.playerId, { bid: Math.max(0, pd.bid - 1) })}
+                        disabled={pd.bid <= 0}
+                      >
+                        <Remove />
+                      </IconButton>
+                      <Chip
+                        label={String(pd.bid)}
+                        color="primary"
+                        sx={{ minWidth: 48, fontSize: '1.1rem', fontWeight: 700 }}
+                      />
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => updatePD(pd.playerId, { bid: Math.min(game.currentRound, pd.bid + 1) })}
+                        disabled={pd.bid >= game.currentRound}
+                      >
+                        <Add />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </Card>
+              </Grow>
+            ))}
+          </Stack>
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            onClick={finishBidding}
+            sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.02)' } }}
+          >
+            Valider les Annonces
+          </Button>
+          <GameMasterControls />
+          <Dialogs />
+        </Container>
+      </Fade>
+    );
+
+  // === SCORING ===
+  if ((game.phase === 'scoring' || game.phase === 'playing') && currentRound) {
+    const totalTricks = currentRound.playerData.reduce((sum, pd) => sum + pd.tricks, 0);
+    const tricksAtMax = totalTricks >= game.currentRound;
+
+    return (
+      <Fade in timeout={400}>
+        <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
+          <Stepper
+            activeStep={phaseToStep('scoring')}
+            alternativeLabel
+            sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}
+          >
+            {STEPS.map((l) => (
+              <Step key={l}>
+                <StepLabel>{l}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          <Alert severity="info" sx={{ mb: 2, bgcolor: 'rgba(169,151,134,0.1)', color: 'text.primary' }}>
+            Manche {game.currentRound}/{MAX_ROUNDS} — Decompte
+          </Alert>
+          <RoundSelector />
+          <Typography variant="h5" gutterBottom color="primary.main">
+            Manche {game.currentRound} — Decompte
+          </Typography>
+          <Box sx={{ mb: 2 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Plis distribues
+              </Typography>
+              <Typography variant="body2" fontWeight={700} color={tricksAtMax ? 'success.main' : 'text.secondary'}>
+                {totalTricks} / {game.currentRound}
+              </Typography>
+            </Stack>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(100, (totalTricks / game.currentRound) * 100)}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: 'rgba(255,255,255,0.1)',
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: tricksAtMax ? 'success.main' : 'primary.main',
+                  transition: 'transform 0.4s ease',
+                },
+              }}
+            />
+          </Box>
+          <Stack spacing={2} sx={{ mb: 3 }}>
+            {currentRound.playerData.map((pd, idx) => (
+              <Grow in timeout={300 + idx * 100} key={pd.playerId}>
+                <Card sx={{ p: 2 }}>
+                  <Typography fontWeight={700} gutterBottom color="primary.main">
+                    {getPlayerName(pd.playerId)} (annonce : {pd.bid})
+                  </Typography>
+                  {/* Tricks */}
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+                    <Typography variant="body2">Plis gagnes</Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <IconButton
+                        size="small"
+                        onClick={() => updatePD(pd.playerId, { tricks: Math.max(0, pd.tricks - 1) })}
+                        disabled={pd.tricks <= 0}
+                      >
+                        <Remove />
+                      </IconButton>
+                      <Chip label={String(pd.tricks)} sx={{ minWidth: 40 }} />
+                      <IconButton
+                        size="small"
+                        onClick={() => updatePD(pd.playerId, { tricks: pd.tricks + 1 })}
+                        disabled={tricksAtMax}
+                      >
+                        <Add />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1, color: 'warning.main' }}>
+                    Bonus
+                  </Typography>
+                  {/* 14 de couleur */}
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                    <Typography variant="body2">14 de couleur captures (+10)</Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          updatePD(pd.playerId, { color14Captured: Math.max(0, pd.color14Captured - 1) })
+                        }
+                        disabled={pd.color14Captured <= 0}
+                      >
+                        <Remove />
+                      </IconButton>
+                      <Chip label={String(pd.color14Captured)} sx={{ minWidth: 40 }} />
+                      <IconButton
+                        size="small"
+                        onClick={() => updatePD(pd.playerId, { color14Captured: pd.color14Captured + 1 })}
+                      >
+                        <Add />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                  {/* 14 Jolly Roger */}
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={pd.jollyRoger14Captured || false}
+                        onChange={(_, c) => updatePD(pd.playerId, { jollyRoger14Captured: c })}
+                        color="primary"
+                      />
+                    }
+                    label="14 Jolly Roger capture (+20)"
+                    sx={{ mb: 0.5 }}
+                  />
+                  {/* Pirates captured by SK */}
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                    <Typography variant="body2">SK capture des Pirates (+30)</Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          updatePD(pd.playerId, { piratesCaptured: Math.max(0, pd.piratesCaptured - 1) })
+                        }
+                        disabled={pd.piratesCaptured <= 0}
+                      >
+                        <Remove />
+                      </IconButton>
+                      <Chip label={String(pd.piratesCaptured)} sx={{ minWidth: 40 }} />
+                      <IconButton
+                        size="small"
+                        onClick={() => updatePD(pd.playerId, { piratesCaptured: pd.piratesCaptured + 1 })}
+                      >
+                        <Add />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                  {/* Mermaid beats SK */}
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={pd.mermaidDefeatsSkullKing}
+                        onChange={(_, c) => updatePD(pd.playerId, { mermaidDefeatsSkullKing: c })}
+                        color="primary"
+                      />
+                    }
+                    label="Sirene capture le Roi des Os (+50)"
+                    sx={{ mb: 0.5 }}
+                  />
+                  {/* Extension-only bonus fields */}
+                  {game.extension && (
+                    <>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={pd.secondCaptured || false}
+                            onChange={(_, c) => updatePD(pd.playerId, { secondCaptured: c })}
+                            color="warning"
+                          />
+                        }
+                        label="SK/Sirene capture le Second (+30)"
+                        sx={{ mb: 0.5 }}
+                      />
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="body2">Alliances Butin reussies (+20)</Typography>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, { butinAlliance: Math.max(0, (pd.butinAlliance || 0) - 1) })
+                            }
+                            disabled={!pd.butinAlliance}
+                          >
+                            <Remove />
+                          </IconButton>
+                          <Chip label={String(pd.butinAlliance || 0)} sx={{ minWidth: 40 }} />
+                          <IconButton
+                            size="small"
+                            onClick={() => updatePD(pd.playerId, { butinAlliance: (pd.butinAlliance || 0) + 1 })}
+                          >
+                            <Add />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="body2">Casier Davy Jones (+20/leviathan)</Typography>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, {
+                                davyJonesLeviathans: Math.max(0, (pd.davyJonesLeviathans || 0) - 1),
+                              })
+                            }
+                            disabled={!pd.davyJonesLeviathans}
+                          >
+                            <Remove />
+                          </IconButton>
+                          <Chip label={String(pd.davyJonesLeviathans || 0)} sx={{ minWidth: 40 }} />
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, { davyJonesLeviathans: (pd.davyJonesLeviathans || 0) + 1 })
+                            }
+                          >
+                            <Add />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="body2">7★ captures (-5)</Typography>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, { sevenStarCount: Math.max(0, (pd.sevenStarCount || 0) - 1) })
+                            }
+                            disabled={!pd.sevenStarCount}
+                          >
+                            <Remove />
+                          </IconButton>
+                          <Chip label={String(pd.sevenStarCount || 0)} sx={{ minWidth: 40 }} />
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, { sevenStarCount: (pd.sevenStarCount || 0) + 1 })
+                            }
+                          >
+                            <Add />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="body2">8★ captures (+5)</Typography>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, { eightStarCount: Math.max(0, (pd.eightStarCount || 0) - 1) })
+                            }
+                            disabled={!pd.eightStarCount}
+                          >
+                            <Remove />
+                          </IconButton>
+                          <Chip label={String(pd.eightStarCount || 0)} sx={{ minWidth: 40 }} />
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              updatePD(pd.playerId, { eightStarCount: (pd.eightStarCount || 0) + 1 })
+                            }
+                          >
+                            <Add />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                    </>
+                  )}
+                  {/* Bonus / Malus */}
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ mb: 1, color: 'secondary.main' }}>
+                      Bonus / Malus
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                      {BONUS_MALUS_VALUES.map((val) => (
+                        <Button
+                          key={val}
+                          size="small"
+                          variant="outlined"
+                          color={val > 0 ? 'success' : 'error'}
+                          onClick={() =>
+                            updatePD(pd.playerId, { bonusMalusPoints: (pd.bonusMalusPoints || 0) + val })
+                          }
+                          sx={{ minWidth: 56 }}
+                        >
+                          {val > 0 ? `+${val}` : String(val)}
+                        </Button>
+                      ))}
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="warning"
+                        onClick={() => updatePD(pd.playerId, { bonusMalusPoints: 0 })}
+                      >
+                        Reset
+                      </Button>
+                    </Stack>
+                    {(pd.bonusMalusPoints || 0) !== 0 && (
+                      <Typography
+                        variant="body2"
+                        sx={{ mt: 0.5, color: pd.bonusMalusPoints > 0 ? 'success.main' : 'error.main' }}
+                      >
+                        Total : {pd.bonusMalusPoints > 0 ? '+' : ''}
+                        {pd.bonusMalusPoints}
+                      </Typography>
+                    )}
+                  </Box>
+                </Card>
+              </Grow>
+            ))}
+          </Stack>
+          <Button variant="contained" fullWidth size="large" onClick={finishScoring}>
+            Calculer les Scores
+          </Button>
+          <GameMasterControls showSkip={false} />
+          <Dialogs />
+        </Container>
+      </Fade>
+    );
+  }
+
+  // === REVIEW ===
+  if (game.phase === 'review' && currentRound)
+    return (
+      <Fade in timeout={400}>
+        <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
+          <Stepper
+            activeStep={3}
+            alternativeLabel
+            sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}
+          >
+            {STEPS.map((l) => (
+              <Step key={l}>
+                <StepLabel>{l}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          <RoundSelector />
+          <Typography
+            variant="h5"
+            gutterBottom
+            color="primary.main"
+            sx={{ animation: `${slideUp} 0.5s ease` }}
+          >
+            Manche {game.currentRound} — Resultats
+          </Typography>
+          <Stack spacing={1.5} sx={{ mb: 3 }}>
+            {currentRound.playerData.map((pd, idx) => {
+              const score = calculateRoundScore(pd, game.currentRound);
+              return (
+                <Grow in timeout={400 + idx * 150} key={pd.playerId}>
+                  <Card sx={{ p: 2 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Box>
+                        <Typography fontWeight={700}>{getPlayerName(pd.playerId)}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Annonce : {pd.bid} | Plis : {pd.tricks}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography
+                          variant="h6"
+                          color={score.totalRoundScore >= 0 ? 'success.main' : 'error.main'}
+                          fontWeight={700}
+                          sx={{ animation: `${scorePulse} 0.6s ease ${0.5 + idx * 0.15}s both` }}
+                        >
+                          {score.totalRoundScore >= 0 ? '+' : ''}
+                          {score.totalRoundScore}
+                        </Typography>
+                        {score.bonusScore > 0 && (
+                          <Typography variant="caption" color="warning.main">
+                            Bonus : +{score.bonusScore}
+                          </Typography>
+                        )}
+                        {score.bonusMalusScore !== 0 && (
+                          <Typography variant="caption" color="text.secondary">
+                            {' '}
+                            B/M : {score.bonusMalusScore > 0 ? '+' : ''}
+                            {score.bonusMalusScore}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  </Card>
+                </Grow>
+              );
+            })}
+          </Stack>
+          <Scoreboard game={game} />
+          <Button
+            variant="text"
+            color="warning"
+            size="small"
+            fullWidth
+            sx={{ mt: 1, mb: 1 }}
+            onClick={() => updateGame({ phase: 'scoring' })}
+          >
+            Modifier cette manche
+          </Button>
+          <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+            <Button variant="outlined" color="error" onClick={() => setConfirmEnd(true)} sx={{ flex: 1 }}>
+              Terminer
+            </Button>
+            {game.currentRound < MAX_ROUNDS && (
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={() => {
+                  setSkipTarget(game.currentRound + 2);
+                  setConfirmSkip(true);
+                }}
+                sx={{ flex: 1 }}
+                startIcon={<SkipNext />}
+                disabled={game.currentRound + 1 >= MAX_ROUNDS}
+              >
+                Sauter
+              </Button>
+            )}
+            <Button variant="contained" onClick={nextRound} sx={{ flex: 2 }}>
+              {game.currentRound >= MAX_ROUNDS
+                ? 'Voir le Classement Final'
+                : `Manche ${game.currentRound + 1} \u2192`}
+            </Button>
+          </Stack>
+          <Dialogs />
+        </Container>
+      </Fade>
+    );
+
+  // === FINISHED ===
+  return (
+    <Fade in timeout={500}>
+      <Container maxWidth="sm" sx={{ py: 2, pb: 10 }}>
+        <Typography
+          variant="h4"
+          gutterBottom
+          color="primary.main"
+          textAlign="center"
+          sx={{
+            animation: `${popIn} 0.7s ease`,
+            background: 'linear-gradient(90deg, #d4af37 0%, #fff 50%, #d4af37 100%)',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animationName: `${popIn}, ${shimmer}`,
+            animationDuration: '0.7s, 3s',
+            animationTimingFunction: 'ease, linear',
+            animationIterationCount: '1, infinite',
+            animationDelay: '0s, 0.7s',
+          }}
+        >
+          Partie Terminee !
+        </Typography>
+        <Grow in timeout={800}>
+          <Box>
+            <Scoreboard game={game} />
+          </Box>
+        </Grow>
+        <Stack spacing={2} sx={{ mt: 3, animation: `${slideUp} 0.6s ease 0.4s both` }}>
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            onClick={newGame}
+            sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.03)' } }}
+          >
+            Nouvelle Partie
+          </Button>
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => navigate('/scores/skull-king')}
+            sx={{ transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.03)' } }}
+          >
+            Voir les Details
+          </Button>
+        </Stack>
+        <Snackbar
+          open={!!shareSnack}
+          autoHideDuration={4000}
+          onClose={() => setShareSnack('')}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert severity="info" onClose={() => setShareSnack('')}>
+            {shareSnack}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </Fade>
+  );
+}

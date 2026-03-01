@@ -8,7 +8,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getMe()
+    api
+      .getMe()
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
@@ -20,10 +21,20 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const register = useCallback(async (email, password) => {
-    const data = await api.register(email, password);
+  const register = useCallback(async (email, pseudo, password) => {
+    const data = await api.register(email, pseudo, password);
+    // L'utilisateur n'est PAS connecte apres register (doit verifier d'abord)
+    return data;
+  }, []);
+
+  const verify = useCallback(async (email, code) => {
+    const data = await api.verify(email, code);
     setUser(data.user);
     return data;
+  }, []);
+
+  const resendCode = useCallback(async (email) => {
+    return api.resendCode(email);
   }, []);
 
   const logout = useCallback(async () => {
@@ -31,8 +42,10 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const isAdmin = user?.role === 'admin';
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, login, register, verify, resendCode, logout }}>
       {children}
     </AuthContext.Provider>
   );

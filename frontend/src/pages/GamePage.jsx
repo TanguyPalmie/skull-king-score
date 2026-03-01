@@ -237,7 +237,7 @@ export default function GamePage() {
       <Stepper activeStep={phaseToStep('bidding')} alternativeLabel sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
         {STEPS.map((l) => <Step key={l}><StepLabel>{l}</StepLabel></Step>)}
       </Stepper>
-      <Alert severity="info" sx={{ mb: 2, bgcolor: 'rgba(212,175,55,0.1)', color: 'text.primary' }}>
+      <Alert severity="info" sx={{ mb: 2, bgcolor: 'rgba(169,151,134,0.1)', color: 'text.primary' }}>
         Manche {game.currentRound}/{settings.maxRounds} — Annonces
       </Alert>
       <Typography variant="h5" gutterBottom color="primary.main">Manche {game.currentRound} — Annonces</Typography>
@@ -282,7 +282,7 @@ export default function GamePage() {
       <Stepper activeStep={phaseToStep('scoring')} alternativeLabel sx={{ mb: 2, '& .MuiStepLabel-label': { fontSize: '0.7rem' } }}>
         {STEPS.map((l) => <Step key={l}><StepLabel>{l}</StepLabel></Step>)}
       </Stepper>
-      <Alert severity="info" sx={{ mb: 2, bgcolor: 'rgba(212,175,55,0.1)', color: 'text.primary' }}>
+      <Alert severity="info" sx={{ mb: 2, bgcolor: 'rgba(169,151,134,0.1)', color: 'text.primary' }}>
         Manche {game.currentRound}/{settings.maxRounds} — Decompte
       </Alert>
       <Typography variant="h5" gutterBottom color="primary.main">Manche {game.currentRound} — Decompte</Typography>

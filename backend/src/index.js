@@ -6,6 +6,11 @@ import pool from './db.js';
 import authRoutes from './routes/auth.js';
 import gamesRoutes from './routes/games.js';
 import settingsRoutes from './routes/settings.js';
+import adminRoutes from './routes/admin.js';
+import gameDefinitionsRoutes from './routes/gameDefinitions.js';
+import friendsRoutes from './routes/friends.js';
+import scoresRoutes from './routes/scores.js';
+import liveGamesRoutes from './routes/liveGames.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +26,11 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/game-definitions', gameDefinitionsRoutes);
+app.use('/api/friends', friendsRoutes);
+app.use('/api/scores', scoresRoutes);
+app.use('/api/live-games', liveGamesRoutes);
 
 // Health check
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
