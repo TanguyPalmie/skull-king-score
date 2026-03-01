@@ -1,4 +1,7 @@
+version: "3.9"
+
 services:
+  # ── Database ─────────────────────────────
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -16,6 +19,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Backend ─────────────────────────────
   backend:
     build: ./backend
     restart: unless-stopped
@@ -28,22 +32,25 @@ services:
       NODE_ENV: production
       PORT: 3001
       FRONTEND_URL: https://sk.palmie.net
-      SMTP_ENABLED: "true"
-      SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_SECURE: "true"
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-postmaster@palmie.net}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-tanguy@palmie.net}
     networks:
       - internal
+      - traefik-public
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sk-api.rule=Host(`sk.palmie.net`) && PathPrefix(`/api`)
+      - traefik.http.routers.sk-api.entrypoints=websecure
+      - traefik.http.routers.sk-api.tls=true
+      - traefik.http.routers.sk-api.tls.certresolver=letsencrypt
+      - traefik.http.services.sk-api.loadbalancer.server.port=3001
 
+  # ── Frontend ────────────────────────────
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://backend:3001
+        VITE_API_URL: https://sk.palmie.net/api
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
     depends_on:
       - backend
@@ -52,17 +59,16 @@ services:
       - traefik-public
     labels:
       - traefik.enable=true
-      - traefik.http.routers.sk.rule=Host(`sk.palmie.net`)
+      - traefik.http.routers.sk.rule=Host(`sk.palmie.net`) && PathPrefix(`/`) && !PathPrefix(`/api`)
       - traefik.http.routers.sk.entrypoints=websecure
       - traefik.http.routers.sk.tls=true
       - traefik.http.routers.sk.tls.certresolver=letsencrypt
-      - traefik.http.services.sk.loadbalancer.server.port=4173
+      - traefik.http.services.sk.loadbalancer.server.port=80
 
 networks:
   internal:
   traefik-public:
     external: true
-    name: traefik-public
 
 volumes:
   pgdata:

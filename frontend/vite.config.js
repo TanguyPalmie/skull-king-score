@@ -5,6 +5,7 @@ const apiTarget = process.env.VITE_API_URL || 'http://localhost:3001';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/', 
   server: {
     host: '0.0.0.0',
     port: 5173,
